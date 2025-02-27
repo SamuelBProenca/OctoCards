@@ -1,8 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import gitCardRoutes from './routes/gitCardRoutes';
-
-require('dotenv').config();
+import './config/octoConfig';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
