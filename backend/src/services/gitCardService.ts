@@ -1,6 +1,7 @@
-// gitCardService.ts
 import axios from 'axios';
 import { PropsGitCard } from '../types/gitCardType';
+// import config from '../config/octoConfig';
+
 
 // Função para buscar informações do repositório
 const fetchRepoInfo = async (owner: string, repo: string) => {
@@ -61,6 +62,25 @@ const fetchRepoIllustrationImage = async (owner: string, repo: string, readmeCon
 };
 
 // Função principal para buscar todos os dados
+/**
+ * Fetches repository data from GitHub and constructs a GitCard object.
+ *
+ * @param owner - The owner of the repository.
+ * @param repo - The name of the repository.
+ * @returns A promise that resolves to a `PropsGitCard` object containing repository data, or `null` if an error occurs.
+ *
+ * The returned `PropsGitCard` object contains the following properties:
+ * - `name`: The name of the repository, or "Sem nome" if not available.
+ * - `description`: The content of the repository's README, or "Sem descrição" if not available.
+ * - `principal_languages`: An array of the principal languages used in the repository, or ["Desconhecido"] if not available.
+ * - `stars`: The number of stars the repository has, or 0 if not available.
+ * - `forks`: The number of forks the repository has, or 0 if not available.
+ * - `url`: The URL of the repository.
+ * - `illustration_image_url`: The URL of an illustration image for the repository.
+ *
+ * @throws Will log an error to the console if fetching repository data fails.
+ */
+
 const fetchRepositoryData = async (owner: string, repo: string): Promise<PropsGitCard | null> => {
     try {
         const repoInfo = await fetchRepoInfo(owner, repo);
