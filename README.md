@@ -15,7 +15,6 @@
 - [Uso](#uso)
 - [Endpoints da API](#endpoints-da-api)
 - [Estrutura do Projeto](#estrutura-do-projeto)
-- [Deploy](#deploy)
 - [Contribuições](#contribuições)
 - [Licença](#licença)
 
@@ -135,32 +134,6 @@ backend/
 ├── tsconfig.json            // Configuração do TypeScript
 └── .env                     // Variáveis de ambiente (não commitado)
 ```
-
----
-
-## Deploy
-
-Você pode hospedar a API em serviços como Heroku, Vercel, AWS, etc.  
-**Exemplo com Heroku:**
-
-1. **Crie uma conta e instale a CLI do Heroku.**
-
-2. **Dentro do diretório do projeto, crie um novo app:**
-   ```bash
-   heroku create seu-nome-de-app
-   ```
-
-3. **Configure as variáveis de ambiente no Heroku:**
-   ```bash
-   heroku config:set OWNER=SeuGitHubUsername PORT=3000 TOKEN=seu_token_github_opcional
-   ```
-
-4. **Faça o deploy via Git:**
-   ```bash
-   git push heroku main
-   ```
-
-Sua API ficará disponível em `https://seu-nome-de-app.herokuapp.com/api/cards`.
 
 ---
 
