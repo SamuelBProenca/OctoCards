@@ -1,159 +1,166 @@
-
----
-
 # OctoCards
 
-**OctoCards** é uma API que facilita a criação de portfólios para desenvolvedores, transformando dados brutos dos repositórios do GitHub em "cards" estruturados e prontos para exibição. Com ela, você pode exibir informações relevantes—como descrição (README), linguagens, estrelas, forks e imagens—de forma automatizada.
+**OctoCards** is an API that simplifies the creation of portfolios for developers by transforming raw data from GitHub repositories into structured and display-ready "cards". With it, you can automatically showcase relevant information—such as description (README), languages, stars, forks, and images.
 
 ---
 
 ## Table of Contents
 
 - [Features](#features)
-- [Instalação](#instalação)
-- [Configuração](#configuração)
-- [Uso](#uso)
-- [Endpoints da API](#endpoints-da-api)
-- [Estrutura do Projeto](#estrutura-do-projeto)
-- [Contribuições](#contribuições)
-- [Licença](#licença)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [API Endpoints](#api-endpoints)
+- [Project Structure](#project-structure)
+- [Contributions](#contributions)
+- [License](#license)
 
 ---
 
 ## Features
 
-- **Integração com GitHub:** Obtém informações dos repositórios via API.
-- **Dados Formatados:** Transforma dados brutos em objetos JSON seguindo a interface `PropsGitCard`.
-- **Suporte a Repositórios Múltiplos:** Permite buscar dados de vários repositórios em uma única requisição.
-- **Configuração Flexível:** Define um owner padrão via variável de ambiente, com possibilidade de sobrescrever.
-- **Segurança:** Tokens e configurações sensíveis ficam armazenados no back-end, protegendo suas credenciais.
-- **Modularidade:** Código dividido em controllers, services, routes, types, utils e config para facilitar a manutenção.
+- **GitHub Integration**: Fetches repository information via API.
+- **Formatted Data**: Transforms raw data into JSON objects following the `PropsGitCard` interface.
+- **Multiple Repositories Support**: Allows fetching data from multiple repositories in a single request.
+- **Flexible Configuration**: Define a default owner via environment variable, with the possibility to override.
+- **Security**: Tokens and sensitive configurations are stored in the backend, protecting your credentials.
+- **Modularity**: Code is divided into controllers, services, routes, types, utils, and config for easier maintenance.
 
 ---
 
-## Instalação
+## Installation
 
-1. **Clone o repositório:**
+To install the package via npm, run the following command:
+
+```bash
+npm install octocards@latest
+```
+
+Or, if you prefer to clone the repository:
+
+1. **Clone the repository:**
    ```bash
-   git clone https://github.com/seu-usuario/OctoCards.git
+   git clone https://github.com/your-username/OctoCards.git
    cd OctoCards/backend
    ```
 
-2. **Instale as dependências:**
+2. **Install the dependencies:**
    ```bash
    npm install
    ```
 
 ---
 
-## Configuração
+## Configuration
 
-Crie um arquivo `.env` na raiz do diretório `backend` com as seguintes variáveis:
+Create a `.env` file in the root of the `backend` directory with the following variables:
 ```env
-OWNER=SeuGitHubUsername
-PORT=3000 ou porta de sua preferência 
-TOKEN=seu_token_github_opcional
+OWNER=YourGitHubUsername
+PORT=3000 or your preferred port
+TOKEN=your_optional_github_token
 ```
 
-As configurações são centralizadas em `config/octoConfig.ts`, que importa as variáveis do `.env` para serem usadas em toda a aplicação.
+Configurations are centralized in `config/octoConfig.ts`, which imports the variables from `.env` to be used throughout the application.
 
 ---
 
-## Uso
+## Usage
 
-### Executar o Servidor em Desenvolvimento
+### Running the Server in Development
 
-Para rodar a API localmente, utilize:
+To run the API locally, use:
 ```bash
 npm run dev
 ```
-A API ficará disponível em:  
+The API will be available at:  
 ```
 http://localhost:3000/api/cards
 ```
 
-### Teste Rápido
+### Quick Test
 
-Você pode testar a funcionalidade de múltiplos repositórios utilizando o arquivo de teste `testOctoCardRepos.ts` (na raiz ou em uma pasta de testes):
+You can test the functionality for multiple repositories using the `testOctoCardRepos.ts` file (in the root or a tests folder):
 ```bash
 npx ts-node testOctoCardRepos.ts
 ```
 
 ---
 
-## Endpoints da API
+## API Endpoints
 
-### 1. Obter Dados de um Único Repositório
+### 1. Get Data from a Single Repository
 
 - **Endpoint:**  
   `GET /api/cards/:repo`
-- **Parâmetros:**  
-  - `:repo` (path) – Nome do repositório.
-  - `owner` (query, opcional) – Para sobrescrever o owner padrão.
-- **Exemplo:**  
+- **Parameters:**  
+  - `:repo` (path) – Repository name.
+  - `owner` (optional query) – To override the default owner.
+- **Example:**  
   ```bash
-  GET http://localhost:3000/api/cards/OctoCards?owner=_seu_usuário_
+  GET http://localhost:3000/api/cards/OctoCards?owner=your_username
   ```
-- **Descrição:**  
-  Retorna um objeto JSON contendo os dados formatados do repositório conforme a interface `PropsGitCard`.
+- **Description:**  
+  Returns a JSON object containing formatted repository data according to the `PropsGitCard` interface.
 
-### 2. Obter Dados de Múltiplos Repositórios
+### 2. Get Data from Multiple Repositories
 
 - **Endpoint:**  
   `GET /api/cards`
-- **Parâmetros (Query):**  
-  - `repos` (obrigatório) – Lista separada por vírgulas dos nomes dos repositórios (ex.: `repos=repo1,repo2`).
-  - `owner` (query, opcional) – Para sobrescrever o owner padrão.
-- **Exemplo:**  
+- **Query Parameters:**  
+  - `repos` (required) – Comma-separated list of repository names (e.g., `repos=repo1,repo2`).
+  - `owner` (optional query) – To override the default owner.
+- **Example:**  
   ```bash
-  GET http://localhost:3000/api/cards?repos=repo1,repo2&owner=_seu_usuário_
+  GET http://localhost:3000/api/cards?repos=repo1,repo2&owner=your_username
   ```
-- **Descrição:**  
-  Retorna um array de objetos JSON, onde cada objeto representa os dados de um repositório.
+- **Description:**  
+  Returns an array of JSON objects, each representing the data of a repository.
 
 ---
 
-## Estrutura do Projeto
+## Project Structure
 
 ```
 backend/
 ├── config/
-│   └── octoConfig.ts       // Variáveis de ambiente (OWNER, PORT, TOKEN)
+│   └── octoConfig.ts       // Environment variables (OWNER, PORT, TOKEN)
 ├── controllers/
-│   └── gitCardController.ts // Funções que tratam as requisições HTTP
+│   └── gitCardController.ts // Functions handling HTTP requests
 ├── routes/
-│   └── gitCardRoutes.ts     // Definição dos endpoints da API
+│   └── gitCardRoutes.ts     // Definition of API endpoints
 ├── services/
-│   └── gitCardService.ts    // Lógica para buscar e formatar os dados do GitHub
+│   └── gitCardService.ts    // Logic for fetching and formatting GitHub data
 ├── types/
-│   └── gitCardType.ts       // Interface PropsGitCard
+│   └── gitCardType.ts       // PropsGitCard interface
 ├── utils/
-│   └── getRepos.ts          // Função para buscar dados de múltiplos repositórios
-├── index.ts                 // Ponto de entrada da aplicação
-├── package.json             // Dependências e scripts
-├── tsconfig.json            // Configuração do TypeScript
-└── .env                     // Variáveis de ambiente (não commitado)
+│   └── getRepos.ts          // Function to fetch data from multiple repositories
+├── index.ts                 // Application entry point
+├── package.json             // Dependencies and scripts
+├── tsconfig.json            // TypeScript configuration
+└── .env                     // Environment variables (not committed)
 ```
 
 ---
 
-## Contribuições
+## Contributions
 
-Contribuições são bem-vindas!  
-- Faça um fork do repositório.
-- Crie uma branch para sua feature: `git checkout -b minha-feature`.
-- Faça commit das alterações: `git commit -m 'Minha nova feature'`.
-- Envie sua branch: `git push origin minha-feature`.
-- Abra um Pull Request.
+Contributions are welcome!  
+- Fork the repository.
+- Create a branch for your feature: `git checkout -b my-feature`.
+- Commit your changes: `git commit -m 'My new feature'`.
+- Push your branch: `git push origin my-feature`.
+- Open a Pull Request.
 
-Por favor, siga as boas práticas de código e mantenha a documentação atualizada.
-
----
-
-## Licença
-
-Este projeto é licenciado sob a [MIT License](LICENSE).
+Please follow coding best practices and keep the documentation updated.
 
 ---
 
-Com esse README, esperamos que os usuários e desenvolvedores entendam como utilizar e contribuir com a API **OctoCards**. Se precisar de mais alguma modificação ou acréscimo, estou à disposição!
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
+---
+
+With this README, we hope users and developers understand how to use and contribute to the **OctoCards** API. If you need any more modifications or additions, let me know!
+
+---
