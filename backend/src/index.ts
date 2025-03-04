@@ -3,9 +3,10 @@ import cors from 'cors';
 import gitCardRoutes from './routes/gitCardRoutes';
 import './config/octoConfig';
 import { getGitCard, getGitCards } from './controllers/gitCardController';
+import config from './config/octoConfig';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = config.port || 3000;
 
 app.use(cors());
 app.use(express.json());
