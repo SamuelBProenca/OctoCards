@@ -141,7 +141,7 @@ components:
         illustration_image_url:
           type: string
           format: uri
-          description: Imagem chamada illustration no repositório, primeira imagem Markdown do README ou placeholder.
+          description: Imagem escolhida entre banner/capa/hero/social preview, outros arquivos de imagem da árvore do repositório e imagens citadas no README; usa placeholder se nenhuma estiver disponível.
     ApiError:
       type: object
       required: [error]

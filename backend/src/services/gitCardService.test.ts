@@ -24,6 +24,7 @@ describe('gitCardService', () => {
                 data: {
                     private: false,
                     name: 'project',
+                    default_branch: 'main',
                     stargazers_count: 12,
                     forks_count: 3,
                     html_url: 'https://github.com/example/project'
@@ -31,12 +32,7 @@ describe('gitCardService', () => {
             })
             .mockResolvedValueOnce({ data: '# Project README' })
             .mockResolvedValueOnce({ data: { TypeScript: 200, JavaScript: 40 } })
-            .mockResolvedValueOnce({
-                data: [
-                    { name: 'illustration', type: 'dir', download_url: null },
-                    { name: 'illustration.png', type: 'file', download_url: 'https://cdn.test/illustration.png' }
-                ]
-            });
+            .mockResolvedValueOnce({ data: { tree: [{ path: 'illustration.png', type: 'blob' }] } });
 
         const card = await createGitCardService(client).fetchRepositoryData('example', 'project');
 
@@ -47,12 +43,42 @@ describe('gitCardService', () => {
             stars: 12,
             forks: 3,
             url: 'https://github.com/example/project',
-            illustration_image_url: 'https://cdn.test/illustration.png'
+            illustration_image_url: 'https://raw.githubusercontent.com/example/project/main/illustration.png'
         });
         expect(get).toHaveBeenNthCalledWith(
             2,
             '/repos/example/project/readme',
             { headers: { Accept: 'application/vnd.github.raw+json' } }
+        );
+        expect(get).toHaveBeenNthCalledWith(
+            4,
+            '/repos/example/project/git/trees/main',
+            { params: { recursive: '1' } }
+        );
+    });
+
+    it('prefers repository banners and resolves nested README image paths', async () => {
+        const { get, client } = createClient();
+        get
+            .mockResolvedValueOnce({ data: { private: false, name: 'project', default_branch: 'main' } })
+            .mockResolvedValueOnce({
+                data: '![Screenshot](docs/ui.png)\n\n![Project cover](./assets/project-cover.webp)'
+            })
+            .mockResolvedValueOnce({ data: { TypeScript: 10 } })
+            .mockResolvedValueOnce({
+                data: {
+                    tree: [
+                        { path: 'docs/ui.png', type: 'blob' },
+                        { path: 'assets/project-cover.webp', type: 'blob' },
+                        { path: 'dist/generated.js', type: 'blob' }
+                    ]
+                }
+            });
+
+        const card = await createGitCardService(client).fetchRepositoryData('example', 'project');
+
+        expect(card.illustration_image_url).toBe(
+            'https://raw.githubusercontent.com/example/project/main/assets/project-cover.webp'
         );
     });
 
@@ -72,7 +98,7 @@ describe('gitCardService', () => {
             .mockResolvedValueOnce({ data: { private: false, name: 'project', html_url: 'https://github.com/example/project' } })
             .mockResolvedValueOnce({ data: '# Project README' })
             .mockResolvedValueOnce({ data: { TypeScript: 20 } })
-            .mockResolvedValueOnce({ data: [] });
+            .mockResolvedValueOnce({ data: { tree: [] } });
 
         const service = createGitCardService(client);
         const [first, concurrent] = await Promise.all([
@@ -92,7 +118,7 @@ describe('gitCardService', () => {
             .mockResolvedValueOnce({ data: { private: false, name: 'project', html_url: 'https://github.com/example/project' } })
             .mockRejectedValueOnce(githubError(404))
             .mockResolvedValueOnce({ data: {} })
-            .mockResolvedValueOnce({ data: [] });
+            .mockResolvedValueOnce({ data: { tree: [] } });
 
         const card = await createGitCardService(client).fetchRepositoryData('example', 'project');
 

@@ -6,22 +6,29 @@ import { PropsGitCard } from '../types/gitCardType';
 interface GithubRepository {
     private?: boolean;
     name?: string | null;
+    default_branch?: string;
     stargazers_count?: number;
     forks_count?: number;
     html_url?: string;
 }
 
-interface GithubContentEntry {
-    name?: string;
+interface GithubTreeEntry {
+    path?: string;
     type?: string;
-    download_url?: string | null;
+}
+
+interface GithubTree {
+    tree?: GithubTreeEntry[];
+    truncated?: boolean;
 }
 
 type GithubClient = Pick<AxiosInstance, 'get'>;
 type CachedCard = { expiresAt: number; value: Promise<PropsGitCard> };
+type ImageCandidate = { url: string; label: string; readmeLinked: boolean };
 
 const CARD_CACHE_TTL_MS = 5 * 60 * 1000;
 const CARD_CACHE_MAX_ENTRIES = 500;
+const IMAGE_FILE_PATTERN = /\.(?:avif|bmp|gif|jpe?g|png|svg|tiff?|webp)(?:$|[?#])/i;
 
 const createGithubClient = (): AxiosInstance => {
     const headers: Record<string, string> = {
@@ -99,6 +106,159 @@ const isGithubRateLimited = (error: unknown): boolean => {
 
 const encodePathSegment = (value: string): string => encodeURIComponent(value);
 
+const normalizeRepositoryPath = (value: string): string | null => {
+    const segments: string[] = [];
+    for (const segment of value.replace(/\\/g, '/').split('/')) {
+        if (!segment || segment === '.') {
+            continue;
+        }
+        if (segment === '..') {
+            if (segments.length === 0) {
+                return null;
+            }
+            segments.pop();
+            continue;
+        }
+        segments.push(segment);
+    }
+    return segments.join('/');
+};
+
+const decodePathSegments = (value: string): string => value
+    .split('/')
+    .map((segment) => {
+        try {
+            return decodeURIComponent(segment);
+        } catch {
+            return segment;
+        }
+    })
+    .join('/');
+
+const buildRawImageUrl = (
+    owner: string,
+    repo: string,
+    branch: string,
+    path: string
+): string => {
+    const encodedBranch = branch.split('/').map(encodePathSegment).join('/');
+    const encodedPath = path.split('/').map(encodePathSegment).join('/');
+    return 'https://raw.githubusercontent.com/' + encodePathSegment(owner) + '/' +
+        encodePathSegment(repo) + '/' + encodedBranch + '/' + encodedPath;
+};
+
+const resolveImageReference = (
+    reference: string,
+    owner: string,
+    repo: string,
+    branch: string
+): string | null => {
+    const value = reference.trim().replace(/^<|>$/g, '').replace(/&amp;/gi, '&');
+    if (!value || /^data:/i.test(value) || /^javascript:/i.test(value)) {
+        return null;
+    }
+
+    if (value.startsWith('//')) {
+        return 'https:' + value;
+    }
+
+    if (/^https?:\/\//i.test(value)) {
+        try {
+            const url = new URL(value);
+            if (url.protocol !== 'https:') {
+                return null;
+            }
+
+            const blobPrefix = '/' + owner + '/' + repo + '/blob/';
+            if (url.hostname.toLowerCase() === 'github.com' && url.pathname.startsWith(blobPrefix)) {
+                const branchAndPath = url.pathname.slice(blobPrefix.length);
+                const branchPrefix = branch.replace(/^\/+|\/+$/g, '') + '/';
+                const path = branchAndPath.startsWith(branchPrefix)
+                    ? branchAndPath.slice(branchPrefix.length)
+                    : branchAndPath.split('/').slice(1).join('/');
+                const normalizedPath = normalizeRepositoryPath(decodePathSegments(path));
+                if (normalizedPath) {
+                    return buildRawImageUrl(owner, repo, branch, normalizedPath);
+                }
+            }
+
+            return url.href;
+        } catch {
+            return null;
+        }
+    }
+
+    const repositoryPath = value.split(/[?#]/, 1)[0];
+    const normalizedPath = normalizeRepositoryPath(decodePathSegments(repositoryPath));
+    return normalizedPath ? buildRawImageUrl(owner, repo, branch, normalizedPath) : null;
+};
+
+const readmeImageReferences = (readmeContent: string): Array<{ reference: string; label: string }> => {
+    const references: Array<{ reference: string; label: string }> = [];
+    const add = (reference: string, label: string): void => {
+        if (reference.trim()) {
+            references.push({ reference: reference.trim(), label: label.trim() });
+        }
+    };
+
+    const definitions = new Map<string, string>();
+    const definitionPattern = /^\s*\[([^\]]+)\]:\s*(?:<([^>]+)>|(\S+))/gm;
+    let definition: RegExpExecArray | null;
+    while ((definition = definitionPattern.exec(readmeContent)) !== null) {
+        definitions.set(definition[1].toLowerCase(), definition[2] || definition[3]);
+    }
+
+    const markdownPattern = /!\[([^\]]*)\]\(\s*(?:<([^>]+)>|([^\s)]+))/g;
+    let markdownImage: RegExpExecArray | null;
+    while ((markdownImage = markdownPattern.exec(readmeContent)) !== null) {
+        add(markdownImage[2] || markdownImage[3], markdownImage[1]);
+    }
+
+    const referencePattern = /!\[([^\]]*)\](?:\[([^\]]*)\])/g;
+    let referenceImage: RegExpExecArray | null;
+    while ((referenceImage = referencePattern.exec(readmeContent)) !== null) {
+        const key = (referenceImage[2] || referenceImage[1]).toLowerCase();
+        const source = definitions.get(key);
+        if (source) {
+            add(source, referenceImage[1]);
+        }
+    }
+
+    const htmlImagePattern = /<img\b([^>]*)>/gi;
+    let htmlImage: RegExpExecArray | null;
+    while ((htmlImage = htmlImagePattern.exec(readmeContent)) !== null) {
+        const sourceMatch = /\bsrc\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))/i.exec(htmlImage[1]);
+        const labelMatch = /\balt\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(htmlImage[1]);
+        const source = sourceMatch && (sourceMatch[1] || sourceMatch[2] || sourceMatch[3]);
+        const label = labelMatch && (labelMatch[1] || labelMatch[2]);
+        if (source) {
+            add(source, label || '');
+        }
+    }
+
+    return references;
+};
+
+const imageCandidateScore = (candidate: ImageCandidate): number => {
+    const description = (candidate.label + ' ' + candidate.url).toLowerCase();
+    if (/badge|shield|shields\.io/.test(description)) {
+        return -1;
+    }
+    if (/\b(?:banner|cover|header|hero)\b|social[-_ ]?preview|open[-_ ]?graph/.test(description)) {
+        return 100;
+    }
+    if (/illustration|artwork|feature[-_ ]?image/.test(description)) {
+        return 90;
+    }
+    if (/showcase|screenshot|preview|demo[-_ ]?image/.test(description)) {
+        return 75;
+    }
+    if (/\b(?:logo|brand|icon)\b/.test(description)) {
+        return 60;
+    }
+    return candidate.readmeLinked ? 40 : 10;
+};
+
 export const createGitCardService = (client: GithubClient = createGithubClient()) => {
     const cardCache = new Map<string, CachedCard>();
 
@@ -143,23 +303,30 @@ export const createGitCardService = (client: GithubClient = createGithubClient()
     const fetchRepoIllustrationImage = async (
         owner: string,
         repo: string,
-        readmeContent: string
+        readmeContent: string,
+        branch: string
     ): Promise<string> => {
-        let illustrationImageUrl = '';
+        const candidates: ImageCandidate[] = readmeImageReferences(readmeContent)
+            .map(({ reference, label }) => ({
+                url: resolveImageReference(reference, owner, repo, branch) || '',
+                label,
+                readmeLinked: true
+            }))
+            .filter((candidate) => candidate.url.length > 0);
 
         try {
-            const response = await client.get<GithubContentEntry[]>(
-                '/repos/' + encodePathSegment(owner) + '/' + encodePathSegment(repo) + '/contents/'
+            const response = await client.get<GithubTree>(
+                '/repos/' + encodePathSegment(owner) + '/' + encodePathSegment(repo) +
+                    '/git/trees/' + encodePathSegment(branch),
+                { params: { recursive: '1' } }
             );
-            const illustrationImage = response.data.find((file) =>
-                file.type === 'file' &&
-                typeof file.name === 'string' &&
-                file.name.toLowerCase().includes('illustration') &&
-                typeof file.download_url === 'string'
-            );
-
-            if (illustrationImage?.download_url) {
-                illustrationImageUrl = illustrationImage.download_url;
+            for (const entry of response.data.tree || []) {
+                if (entry.type === 'blob' && entry.path && IMAGE_FILE_PATTERN.test(entry.path)) {
+                    const url = resolveImageReference(entry.path, owner, repo, branch);
+                    if (url) {
+                        candidates.push({ url, label: entry.path, readmeLinked: false });
+                    }
+                }
             }
         } catch (error) {
             // Image lookup is optional; keep rate-limit failures visible to the caller.
@@ -168,14 +335,21 @@ export const createGitCardService = (client: GithubClient = createGithubClient()
             }
         }
 
-        if (!illustrationImageUrl) {
-            const readmeImageMatch = readmeContent.match(/!\[.*?\]\((.*?)\)/);
-            if (readmeImageMatch) {
-                illustrationImageUrl = readmeImageMatch[1];
-            }
+        const selected = candidates
+            .map((candidate, index) => ({ candidate, index, score: imageCandidateScore(candidate) }))
+            .filter((entry) => entry.score >= 0)
+            .sort((left, right) => {
+                if (left.score !== right.score) {
+                    return right.score - left.score;
+                }
+                return left.index - right.index;
+            })[0];
+
+        if (selected) {
+            return selected.candidate.url;
         }
 
-        return illustrationImageUrl || 'https://placehold.co/600x400';
+        return 'https://placehold.co/600x400';
     };
 
     const loadRepositoryData = async (owner: string, repo: string): Promise<PropsGitCard> => {
@@ -187,7 +361,12 @@ export const createGitCardService = (client: GithubClient = createGithubClient()
         }
         const readmeContent = await fetchRepoReadme(owner, repo);
         const principalLanguages = await fetchRepoLanguages(owner, repo);
-        const illustrationImage = await fetchRepoIllustrationImage(owner, repo, readmeContent);
+        const illustrationImage = await fetchRepoIllustrationImage(
+            owner,
+            repo,
+            readmeContent,
+            repoInfo.default_branch || 'HEAD'
+        );
 
         return {
             name: repoInfo.name || 'Sem nome',
