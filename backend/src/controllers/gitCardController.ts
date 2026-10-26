@@ -1,66 +1,86 @@
-// octoController.ts (ou gitCardController.ts)
 import { Request, Response } from 'express';
 import gitCardService from '../services/gitCardService';
-import { PropsGitCard } from '../types/gitCardType';
+import { OctoCardError } from '../types/octoCardError';
 import { OctoCardRepos } from '../utils/getRepos';
 import config from '../config/octoConfig';
 
-/**
- * Obtém os dados de um único repositório e retorna o card formatado.
- *
- * Endpoint: GET /api/cards/:repo
- * Usa o owner padrão definido em config.
- *
- * @param req Express Request. Deve conter o parâmetro de rota `repo` com o nome do repositório.
- * @param res Express Response. Retorna um objeto JSON do tipo PropsGitCard ou uma mensagem de erro.
- */
-export const getGitCard = async (req: Request, res: Response): Promise<void> => {
-    try {
-        const { repo } = req.params;
-        console.log(`Buscando dados do repositório: ${config.owner}/${repo}`);
-        const gitCardData: PropsGitCard | null = await gitCardService.fetchRepositoryData(config.owner, repo);
-        
-        if (!gitCardData) {
-            console.log('Repositório não encontrado');
-            res.status(404).json({ message: "Repositório não encontrado" });
-            return;
+const isSafePathSegment = (value: string): boolean =>
+    value.length > 0 && /[\\\/?#\u0000-\u001f]/.test(value) === false;
+
+const invalidRequest = (message: string): OctoCardError =>
+    new OctoCardError('INVALID_REQUEST', 400, message);
+
+const resolveOwner = (queryOwner: unknown): string => {
+    if (queryOwner !== undefined) {
+        if (typeof queryOwner !== 'string') {
+            throw invalidRequest('The owner query parameter must be a single string.');
         }
 
-        console.log('Dados do Git Card:', gitCardData);
-        res.json(gitCardData);
+        const owner = queryOwner.trim();
+        if (!isSafePathSegment(owner)) {
+            throw invalidRequest('The owner query parameter is invalid.');
+        }
+        return owner;
+    }
+
+    const configuredOwner = config.owner.trim();
+    if (!isSafePathSegment(configuredOwner)) {
+        throw new OctoCardError(
+            'CONFIGURATION_ERROR',
+            500,
+            'Set a valid OWNER or provide an owner query parameter.'
+        );
+    }
+
+    return configuredOwner;
+};
+
+const sendError = (res: Response, error: unknown, route: string): void => {
+    if (error instanceof OctoCardError) {
+        console.error('OctoCards request failed', { route, code: error.code });
+        res.status(error.statusCode).json({
+            error: { code: error.code, message: error.message }
+        });
+        return;
+    }
+
+    console.error('OctoCards request failed', { route, code: 'INTERNAL_ERROR' });
+    res.status(500).json({
+        error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred.' }
+    });
+};
+
+export const getGitCard = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const repo = req.params.repo.trim();
+        if (!isSafePathSegment(repo)) {
+            throw invalidRequest('The repository name is invalid.');
+        }
+
+        const owner = resolveOwner(req.query.owner);
+        const gitCardData = await gitCardService.fetchRepositoryData(owner, repo);
+        res.status(200).json(gitCardData);
     } catch (error) {
-        console.error("Erro ao buscar repositório:", error);
-        res.status(500).json({ message: `Erro ${error} no servidor` });
+        sendError(res, error, 'GET /api/cards/:repo');
     }
 };
 
-/**
- * Obtém os dados de múltiplos repositórios e retorna um array de cards.
- *
- * Endpoint: GET /api/cards
- * Espera um parâmetro de query chamado `repos`, contendo uma lista separada por vírgulas
- * dos nomes dos repositórios (por exemplo: ?repos=repo1,repo2,repo3).
- * Usa o owner padrão definido em config.
- *
- * @param req Express Request. Deve conter o parâmetro de query `repos`.
- * @param res Express Response. Retorna um array de objetos JSON do tipo PropsGitCard ou uma mensagem de erro.
- */
 export const getGitCards = async (req: Request, res: Response): Promise<void> => {
     try {
-        // Extrai a query "repos" que deve ser uma string com os nomes separados por vírgulas.
-        const reposParam = req.query.repos as string;
-        if (!reposParam) {
-            res.status(400).json({ message: "Nenhum repositório informado. Utilize ?repos=repo1,repo2,..." });
-            return;
+        const reposParam = req.query.repos;
+        if (typeof reposParam !== 'string') {
+            throw invalidRequest('Provide repos as a comma-separated list.');
         }
-        // Separa os repositórios em um array
-        const repos: string[] = reposParam.split(',').map(repo => repo.trim());
-        console.log(`Buscando dados dos repositórios: ${repos.join(', ')}`);
-        // Chama a função que coleta dados para múltiplos repositórios
-        const data = await OctoCardRepos(repos);
-        res.json(data);
+
+        const repos = reposParam.split(',').map((repo) => repo.trim());
+        if (repos.length === 0 || repos.some((repo) => !isSafePathSegment(repo))) {
+            throw invalidRequest('The repos parameter contains an empty or invalid repository name.');
+        }
+
+        const owner = resolveOwner(req.query.owner);
+        const cards = await OctoCardRepos(repos, owner);
+        res.status(200).json(cards);
     } catch (error) {
-        console.error("Erro ao buscar repositórios:", error);
-        res.status(500).json({ message: `Erro ${error} no servidor` });
+        sendError(res, error, 'GET /api/cards');
     }
 };

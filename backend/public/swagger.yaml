@@ -1,0 +1,210 @@
+openapi: 3.0.3
+info:
+  title: OctoCards API
+  version: 0.1.0-alpha
+  description: |
+    API pública para consultar dados de repositórios públicos do GitHub e produzir cartões JSON.
+    O playground web é opcional. A credencial GitHub é configurada somente no servidor pela variável TOKEN;
+    consumidores desta API não devem enviar nem receber esse token. Coleções falham por inteiro se algum
+    repositório solicitado falhar.
+servers:
+  - url: /
+    description: Mesmo host que serve esta especificação
+tags:
+  - name: Cards
+    description: Dados de um repositório ou de uma coleção
+paths:
+  /api/cards/{repo}:
+    get:
+      tags: [Cards]
+      summary: Consultar um cartão
+      operationId: getCard
+      parameters:
+        - $ref: '#/components/parameters/Repo'
+        - $ref: '#/components/parameters/Owner'
+      responses:
+        '200':
+          description: Dados do repositório público
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GitCard'
+              example:
+                name: OctoCards
+                description: '# OctoCards'
+                principal_languages: [TypeScript, JavaScript]
+                stars: 2
+                forks: 0
+                url: https://github.com/SamuelBProenca/OctoCards
+                illustration_image_url: https://placehold.co/600x400
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+        '504':
+          $ref: '#/components/responses/Timeout'
+  /api/cards:
+    get:
+      tags: [Cards]
+      summary: Consultar vários cartões
+      operationId: getCards
+      description: Retorna um array na ordem solicitada. Se qualquer repositório falhar, a resposta contém um erro em vez de resultados parciais.
+      parameters:
+        - name: repos
+          in: query
+          required: true
+          description: Nomes separados por vírgulas; não inclua owner/repo.
+          schema:
+            type: string
+          example: OctoCards,LinkKeeper
+        - $ref: '#/components/parameters/Owner'
+      responses:
+        '200':
+          description: Cartões dos repositórios solicitados
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GitCard'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+        '504':
+          $ref: '#/components/responses/Timeout'
+components:
+  parameters:
+    Repo:
+      name: repo
+      in: path
+      required: true
+      description: Nome de um repositório público
+      schema:
+        type: string
+        minLength: 1
+      example: OctoCards
+    Owner:
+      name: owner
+      in: query
+      required: false
+      description: Conta ou organização do GitHub. Se omitido, usa OWNER configurado no servidor.
+      schema:
+        type: string
+        minLength: 1
+      example: SamuelBProenca
+  schemas:
+    GitCard:
+      type: object
+      required: [name, description, principal_languages, stars, forks, url, illustration_image_url]
+      properties:
+        name:
+          type: string
+          description: Nome do repositório.
+        description:
+          type: string
+          description: Conteúdo bruto do README; usa "Sem descrição" se não houver README.
+        principal_languages:
+          type: array
+          items:
+            type: string
+          description: Linguagens detectadas; usa "Desconhecido" se a API não retornar linguagens.
+        stars:
+          type: integer
+          minimum: 0
+        forks:
+          type: integer
+          minimum: 0
+        url:
+          type: string
+          format: uri
+        illustration_image_url:
+          type: string
+          format: uri
+          description: Imagem chamada illustration no repositório, primeira imagem Markdown do README ou placeholder.
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+  responses:
+    InvalidRequest:
+      description: Parâmetro ausente ou inválido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: GitHub rejeitou a credencial configurada no servidor
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Forbidden:
+      description: GitHub negou acesso ao recurso
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: Repositório inexistente, inacessível ou privado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    RateLimited:
+      description: Cota da API do GitHub esgotada; aguarde a renovação ou configure TOKEN no backend.
+      headers:
+        Retry-After:
+          schema:
+            type: string
+          description: Presente quando informado pelo GitHub
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalError:
+      description: Erro interno do servidor ou configuração inválida
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    UpstreamError:
+      description: Falha inesperada ao consultar o GitHub
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Timeout:
+      description: Tempo limite excedido ao consultar o GitHub
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'

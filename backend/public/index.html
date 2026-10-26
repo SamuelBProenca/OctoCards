@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f1e9">
+  <meta name="description" content="Explore os dados públicos dos seus repositórios com OctoCards.">
+  <title>OctoCards — API Playground</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Pular para a área de teste</a>
+  <header class="topbar">
+    <div class="topbar__inner">
+      <a class="brand" href="/" aria-label="OctoCards, início">
+        <span class="brand__mark" aria-hidden="true"><span></span></span>
+        <span class="brand__name">octocards</span><span class="brand__divider" aria-hidden="true"></span>
+        <span class="brand__edition">API playground</span>
+      </a>
+      <nav class="topbar__nav" aria-label="Navegação principal">
+        <a href="#workspace">Explorar</a><a href="#about-api">A API</a>
+        <a id="header-api-link" class="topbar__api-link" href="/api/cards/OctoCards?owner=SamuelBProenca" target="_blank" rel="noopener">JSON direto <span aria-hidden="true">↗</span></a>
+      </nav>
+    </div>
+  </header>
+  <main class="page-shell">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero__main">
+        <p class="eyebrow"><span class="eyebrow__dot" aria-hidden="true"></span> OCTOCARDS <span class="eyebrow__slash">/</span> ALPHA PLAYGROUND</p>
+        <h1 id="hero-title">Repositórios,<br><em>em contexto.</em></h1>
+      </div>
+      <div class="hero__aside">
+        <p>Uma camada de dados para quem quer construir a própria vitrine. Explore cartões aqui; leve o mesmo JSON para qualquer front-end — ou consuma a API diretamente.</p>
+        <div class="hero__endpoint"><span class="hero__endpoint-method">GET</span><code>/api/cards</code><span class="hero__endpoint-note">API aberta, interface opcional</span></div>
+      </div>
+      <div class="hero__index" aria-hidden="true">01</div>
+    </section>
+    <section class="workspace" id="workspace" aria-labelledby="workspace-title">
+      <div class="workspace__heading">
+        <div><p class="eyebrow">01 <span class="eyebrow__slash">/</span> CONSULTA</p><h2 id="workspace-title">Escolha uma coleção</h2></div>
+        <p class="workspace__hint">Informe uma conta e os repositórios separados por vírgula.</p>
+      </div>
+      <form class="query-form" id="request-form">
+        <div class="field">
+          <label for="owner">Conta do GitHub</label>
+          <div class="input-wrap input-wrap--owner"><span class="input-prefix" aria-hidden="true">@</span><input id="owner" name="owner" type="text" value="SamuelBProenca" autocomplete="off" spellcheck="false" required></div>
+        </div>
+        <div class="field field--repos"><label for="repos">Repositórios</label><input id="repos" name="repos" type="text" value="OctoCards, LinkKeeper" autocomplete="off" spellcheck="false" placeholder="OctoCards, LinkKeeper" required></div>
+        <button class="button button--primary" id="submit-button" type="submit"><span>Buscar projetos</span><span class="button__arrow" aria-hidden="true">↗</span></button>
+      </form>
+      <div class="preset-row">
+        <span class="preset-row__label">TESTAR COM</span>
+        <div class="preset-list" id="preset-list" aria-label="Coleções de demonstração">
+          <button class="preset-button is-selected" type="button" data-preset="mine" aria-pressed="true">Meus projetos</button>
+          <button class="preset-button" type="button" data-preset="akita" aria-pressed="false">Fábio Akita</button>
+          <button class="preset-button" type="button" data-preset="lucas" aria-pressed="false">Lucas Montano</button>
+          <button class="preset-button" type="button" data-preset="filipe" aria-pressed="false">Filipe Deschamps</button>
+          <button class="preset-button" type="button" data-preset="octocat" aria-pressed="false">Octocat · demo</button>
+        </div>
+      </div>
+      <p class="request-status" id="request-status" role="status" aria-live="polite">Preparando a primeira consulta…</p>
+    </section>
+    <section class="collection" id="collection" aria-labelledby="collection-title">
+      <div class="collection__header">
+        <div><p class="eyebrow">02 <span class="eyebrow__slash">/</span> RESPOSTA</p><h2 id="collection-title">Cartões da coleção <span class="result-count" id="result-count">—</span></h2></div>
+        <div class="result-toolbar" id="result-toolbar" hidden>
+          <div class="view-switch" role="group" aria-label="Formato da resposta">
+            <button class="view-switch__button is-active" id="cards-view-button" type="button" aria-pressed="true">Cartões</button>
+            <button class="view-switch__button" id="json-view-button" type="button" aria-pressed="false">JSON</button>
+          </div>
+          <button class="button button--quiet" id="copy-all-button" type="button">Copiar JSON</button>
+          <a class="text-link" id="direct-api-link" href="/api/cards/OctoCards?owner=SamuelBProenca" target="_blank" rel="noopener">Abrir API ↗</a>
+        </div>
+      </div>
+      <div class="error-panel" id="error-panel" role="alert" hidden></div>
+      <div class="loading-panel" id="loading-panel" hidden><span class="loading-panel__mark" aria-hidden="true"></span><span>Consultando o GitHub…</span></div>
+      <div class="cards-grid" id="cards-grid"></div>
+      <pre class="json-panel" id="json-panel" hidden><code id="json-content"></code></pre>
+    </section>
+    <section class="api-note" id="about-api" aria-labelledby="api-note-title">
+      <div class="api-note__number">03</div>
+      <div class="api-note__copy"><p class="eyebrow">INTERFACE OPCIONAL</p><h2 id="api-note-title">O dado continua seu.</h2><p>Este playground é só uma forma de experimentar. O mesmo serviço continua disponível sem esta página, em JSON, para qualquer implementação front-end.</p></div>
+      <div class="api-note__routes">
+        <a href="/api/cards/OctoCards?owner=SamuelBProenca" target="_blank" rel="noopener"><code>GET /api/cards/:repo</code><span>um repositório ↗</span></a>
+        <a href="/api/cards?repos=OctoCards%2CLinkKeeper&owner=SamuelBProenca" target="_blank" rel="noopener"><code>GET /api/cards?repos=…</code><span>uma coleção ↗</span></a>
+      </div>
+    </section>
+  </main>
+  <footer class="footer"><div class="footer__inner">
+    <span>OCTOCARDS <span class="eyebrow__slash">/</span> GITHUB DATA</span>
+    <span>Construído para ser usado com ou sem este front-end.</span>
+    <a href="/swagger.yaml" target="_blank" rel="noopener">Swagger / OpenAPI ↗</a>
+    <a href="https://github.com/SamuelBProenca/OctoCards" target="_blank" rel="noopener">Código-fonte ↗</a>
+  </div></footer>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
