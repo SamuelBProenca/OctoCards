@@ -27,8 +27,9 @@ Crie backend/.env com as variáveis que deseja configurar:
 ~~~dotenv
 OWNER=octocat
 PORT=3000
-TOKEN=SEU_TOKEN_GITHUB
+TOKEN=
 GITHUB_TIMEOUT_MS=10000
+PLAYGROUND_ENABLED=false
 ~~~
 
 OWNER define a conta usada quando a URL não informa owner. PORT escolhe a porta do servidor. TOKEN é opcional, mas autenticar as consultas evita que o playground dependa apenas da cota pública não autenticada. Use uma credencial de servidor com acesso de leitura necessário aos repositórios públicos. O valor deve ficar no backend e nunca no JavaScript do navegador. O arquivo .env está ignorado pelo Git; não o adicione ao commit.
@@ -41,7 +42,7 @@ Inicie o serviço:
 npm run dev
 ~~~
 
-Abra http://localhost:3000/. Se a porta estiver ocupada, escolha outra em PORT. Sem TOKEN, consultas ainda podem funcionar, mas chamadas sem autenticação têm uma cota menor e podem responder com GITHUB_RATE_LIMITED.
+Com PLAYGROUND_ENABLED=false, / retorna um resumo JSON; consulte a documentação em http://localhost:3000/docs/ e use as rotas /api/cards diretamente. Para abrir o playground, altere PLAYGROUND_ENABLED para true. Se a porta estiver ocupada, ajuste PORT. Sem TOKEN, consultas ainda podem funcionar, mas chamadas sem autenticação têm uma cota menor e podem responder com GITHUB_RATE_LIMITED.
 
 ## 3. Usar o playground
 

@@ -271,7 +271,7 @@
     const imageUrl = safeWebUrl(card.illustration_image_url);
     if (imageUrl && !imageUrl.includes("placehold.co")) {
       const image = element("img", "repo-card__image");
-      image.alt = "";
+      image.alt = "Capa do repositório " + (card.name || "Repositório");
       image.loading = "lazy";
       image.decoding = "async";
       image.addEventListener("load", () => art.classList.add("has-image"), { once: true });
@@ -288,6 +288,7 @@
   };
   const createCard = (card, owner, index) => {
     const article = element("article", "repo-card");
+    article.style.setProperty("--card-index", String(Math.min(index, 5)));
     article.append(createArt(card, index));
     const body = element("div", "repo-card__body");
     const identity = element("p", "repo-card__owner", owner + " / repository");
@@ -306,7 +307,7 @@
     languageNames.forEach((language) => languages.append(element("span", "language-tag", language)));
     const readmePanel = createReadmePanel(card.description);
     const actions = element("div", "repo-card__actions");
-    const githubLink = element("a", "repo-card__github", "Ver no GitHub ↗");
+    const githubLink = element("a", "repo-card__github", "Ver no GitHub");
     githubLink.href = repositoryUrl;
     githubLink.target = "_blank";
     githubLink.rel = "noopener noreferrer";
@@ -329,7 +330,16 @@
   };
   const renderCards = (cards, owner) => {
     const fragment = document.createDocumentFragment();
-    cards.forEach((card, index) => fragment.append(createCard(card, owner, index)));
+    if (cards.length === 0) {
+      const empty = element("div", "empty-state");
+      empty.append(
+        element("h3", "empty-state__title", "Nenhum cartão nesta resposta"),
+        element("p", "empty-state__copy", "Confira o nome da conta e dos repositórios e faça uma nova consulta.")
+      );
+      fragment.append(empty);
+    } else {
+      cards.forEach((card, index) => fragment.append(createCard(card, owner, index)));
+    }
     cardsGrid.replaceChildren(fragment);
   };
   const syncPageAddress = (owner, repos) => {

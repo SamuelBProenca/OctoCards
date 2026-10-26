@@ -1,166 +1,62 @@
 # OctoCards
 
-**OctoCards** is an API that simplifies the creation of portfolios for developers by transforming raw data from GitHub repositories into structured and display-ready "cards". With it, you can automatically showcase relevant information—such as description (README), languages, stars, forks, and images.
+OctoCards collects public GitHub repository data and returns it as JSON, so you can build a portfolio or interface of your own. The included playground is an optional example client; the API also runs on its own.
 
----
+- **Online guide:** open `/docs/` on your OctoCards instance.
+- **OpenAPI specification:** `/swagger.yaml` on the same host.
+- **Project guide:** [backend/public/GUIA_DO_OCTOCARDS.md](backend/public/GUIA_DO_OCTOCARDS.md).
 
-## Table of Contents
+## Run locally
 
-- [Features](#features)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Usage](#usage)
-- [API Endpoints](#api-endpoints)
-- [Project Structure](#project-structure)
-- [Contributions](#contributions)
-- [License](#license)
+Requirements: Node.js and npm.
 
----
-
-## Features
-
-- **GitHub Integration**: Fetches repository information via API.
-- **Formatted Data**: Transforms raw data into JSON objects following the `PropsGitCard` interface.
-- **Multiple Repositories Support**: Allows fetching data from multiple repositories in a single request.
-- **Flexible Configuration**: Define a default owner via environment variable, with the possibility to override.
-- **Security**: Tokens and sensitive configurations are stored in the backend, protecting your credentials.
-- **Modularity**: Code is divided into controllers, services, routes, types, utils, and config for easier maintenance.
-
----
-
-## Installation
-
-To install the package via npm, run the following command:
-
-```bash
-npm install octocards@latest
-```
-
-Or, if you prefer to clone the repository:
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/your-username/OctoCards.git
-   cd OctoCards/backend
-   ```
-
-2. **Install the dependencies:**
-   ```bash
-   npm install
-   ```
-
----
-
-## Configuration
-
-Create a `.env` file in the root of the `backend` directory with the following variables:
-```env
-OWNER=YourGitHubUsername
-PORT=3000 or your preferred port
-TOKEN=your_optional_github_token
-```
-
-Configurations are centralized in `config/octoConfig.ts`, which imports the variables from `.env` to be used throughout the application.
-
----
-
-## Usage
-
-### Running the Server in Development
-
-To run the API locally, use:
-```bash
+```sh
+git clone https://github.com/SamuelBProenca/OctoCards.git
+cd OctoCards/backend
+npm install
 npm run dev
 ```
-The API will be available at:  
-```
-http://localhost:3000/api/cards
-```
 
-### Quick Test
+Before starting, copy `.env.example` to `.env` (PowerShell: `Copy-Item .env.example .env`; macOS/Linux or Git Bash: `cp .env.example .env`). The template starts OctoCards in API-only mode. The server runs at `http://localhost:3000`; the root path returns service information, the guide is at `/docs/`, and requests go to `/api/cards`. To also serve the visual playground at `/`, set `PLAYGROUND_ENABLED=true` in `.env` and restart the server.
 
-You can test the functionality for multiple repositories using the `testOctoCardRepos.ts` file (in the root or a tests folder):
-```bash
-npx ts-node testOctoCardRepos.ts
-```
+## Configure
 
----
+Set these values in `backend/.env`:
 
-## API Endpoints
+| Variable | Purpose | Example |
+| --- | --- | --- |
+| `OWNER` | Default GitHub account when `owner` is omitted from a request. | `octocat` |
+| `PORT` | Local server port. | `3000` |
+| `TOKEN` | Optional GitHub token used by the backend to authenticate upstream requests and reduce anonymous rate-limit issues. Keep it secret and never put it in browser code. | Leave blank or set your token |
+| `GITHUB_TIMEOUT_MS` | Timeout for GitHub requests, in milliseconds. | `10000` |
+| `PLAYGROUND_ENABLED` | Serves the optional visual client at `/` when `true`; when `false`, the API, docs, and OpenAPI file stay available. | `false` |
 
-### 1. Get Data from a Single Repository
+## Call the API
 
-- **Endpoint:**  
-  `GET /api/cards/:repo`
-- **Parameters:**  
-  - `:repo` (path) – Repository name.
-  - `owner` (optional query) – To override the default owner.
-- **Example:**  
-  ```bash
-  GET http://localhost:3000/api/cards/OctoCards?owner=your_username
-  ```
-- **Description:**  
-  Returns a JSON object containing formatted repository data according to the `PropsGitCard` interface.
+Use your deployed instance's base URL online, or `http://localhost:3000` locally.
 
-### 2. Get Data from Multiple Repositories
+Fetch one repository:
 
-- **Endpoint:**  
-  `GET /api/cards`
-- **Query Parameters:**  
-  - `repos` (required) – Comma-separated list of repository names (e.g., `repos=repo1,repo2`).
-  - `owner` (optional query) – To override the default owner.
-- **Example:**  
-  ```bash
-  GET http://localhost:3000/api/cards?repos=repo1,repo2&owner=your_username
-  ```
-- **Description:**  
-  Returns an array of JSON objects, each representing the data of a repository.
-
----
-
-## Project Structure
-
-```
-backend/
-├── config/
-│   └── octoConfig.ts       // Environment variables (OWNER, PORT, TOKEN)
-├── controllers/
-│   └── gitCardController.ts // Functions handling HTTP requests
-├── routes/
-│   └── gitCardRoutes.ts     // Definition of API endpoints
-├── services/
-│   └── gitCardService.ts    // Logic for fetching and formatting GitHub data
-├── types/
-│   └── gitCardType.ts       // PropsGitCard interface
-├── utils/
-│   └── getRepos.ts          // Function to fetch data from multiple repositories
-├── index.ts                 // Application entry point
-├── package.json             // Dependencies and scripts
-├── tsconfig.json            // TypeScript configuration
-└── .env                     // Environment variables (not committed)
+```sh
+curl "http://localhost:3000/api/cards/Hello-World?owner=octocat"
 ```
 
----
+Fetch several repositories from the same owner:
 
-## Contributions
+```sh
+curl "http://localhost:3000/api/cards?owner=octocat&repos=Hello-World,Spoon-Knife"
+```
 
-Contributions are welcome!  
-- Fork the repository.
-- Create a branch for your feature: `git checkout -b my-feature`.
-- Commit your changes: `git commit -m 'My new feature'`.
-- Push your branch: `git push origin my-feature`.
-- Open a Pull Request.
+Both routes return JSON. A card includes the repository name, README content, main languages, stars, forks, repository URL, and a selected image URL when available. See `/docs/` or `/swagger.yaml` for parameter details, response fields, and errors.
 
-Please follow coding best practices and keep the documentation updated.
+## Project structure
 
----
+- `backend/src/` — API configuration, routes, controllers, GitHub data collection, and types.
+- `backend/public/` — optional playground, in-site documentation, OpenAPI description, and usage guide.
+- `backend/.env.example` — safe local configuration template. Keep your real `.env` out of Git.
 
-## License
+## Development
 
-This project is licensed under the [MIT License](LICENSE).
+From `backend/`, run `npm test` for the existing Jest suite and `npx tsc --noEmit` for a TypeScript check. `npm run dev` starts the local server.
 
----
-
-With this README, we hope users and developers understand how to use and contribute to the **OctoCards** API. If you need any more modifications or additions, let me know!
-
----
+Contributions are welcome. Open an issue or pull request with a clear description.
