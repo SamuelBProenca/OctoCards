@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080a09">
+  <meta name="description" content="Como consumir a API OctoCards publicada ou executar o serviço localmente, sem o playground.">
+  <title>Documentação da API — OctoCards</title>
+  <link rel="stylesheet" href="/docs/docs.css">
+  <script src="/docs/docs.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Pular para a documentação</a>
+  <header class="docs-topbar">
+    <div class="docs-topbar__inner">
+      <a class="docs-brand" href="/" aria-label="OctoCards, início">
+        <svg viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M7.5 5.5h12l5 5v16h-17z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+          <path d="M19.5 5.5v5h5M11.5 15h9M11.5 19h9M11.5 23h5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+          <path d="M5 8v17M27 12v13" fill="none" stroke="#71e9b0" stroke-width="1.7" stroke-linecap="round"/>
+        </svg>
+        <span>octocards</span>
+      </a>
+      <nav class="docs-topbar__nav" aria-label="Navegação principal">
+        <a href="/">Playground</a>
+        <a href="/docs/" aria-current="page">Documentação</a>
+        <a href="/swagger.yaml">OpenAPI</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="docs-layout" id="main-content">
+    <aside class="docs-sidebar">
+      <nav aria-label="Nesta página">
+        <span class="docs-sidebar__label">NESTA PÁGINA</span>
+        <a href="#comece">Comece aqui</a>
+        <a href="#local">Executar localmente</a>
+        <a href="#rotas">Rotas da API</a>
+        <a href="#resposta">Formato JSON</a>
+        <a href="#erros">Erros</a>
+        <a href="#limites">Limites e segurança</a>
+      </nav>
+    </aside>
+
+    <article class="docs-article">
+      <header class="docs-intro">
+        <h1>Use a API do seu jeito.</h1>
+        <p class="docs-lede">OctoCards coleta dados de repositórios públicos do GitHub e os entrega em JSON. O playground é uma demonstração; sua aplicação pode consumir a API diretamente, sem depender da interface incluída.</p>
+        <div class="docs-callout">
+          <strong>O dado é a interface.</strong>
+          <p>Use o JSON em um site estático, React, Vue, outro framework ou qualquer cliente HTTP. O consumidor não precisa conhecer o token do GitHub configurado no servidor OctoCards.</p>
+        </div>
+      </header>
+
+      <section class="docs-section" id="comece" aria-labelledby="comece-title">
+        <h2 id="comece-title">Comece com uma chamada</h2>
+        <p>Use o domínio da instância publicada ou o endereço local do backend. Se a sua página e a API estiverem no mesmo host, <code>window.location.origin</code> funciona para ambos.</p>
+        <div class="docs-example">
+          <div class="docs-example__head"><div><h3>Online</h3><p>Substitua <code>SEU_HOST</code> pelo domínio publicado.</p></div><button class="copy-button" type="button" data-copy-target="online-request">Copiar</button></div>
+          <pre id="online-request"><code>curl "https://SEU_HOST/api/cards/OctoCards?owner=SamuelBProenca"</code></pre>
+        </div>
+        <div class="docs-example">
+          <div class="docs-example__head"><div><h3>Local</h3><p>Usa a porta padrão <code>3000</code>.</p></div><button class="copy-button" type="button" data-copy-target="local-request">Copiar</button></div>
+          <pre id="local-request"><code>curl "http://localhost:3000/api/cards/OctoCards?owner=SamuelBProenca"</code></pre>
+        </div>
+        <div class="docs-example">
+          <div class="docs-example__head"><div><h3>Buscar uma coleção em JavaScript</h3><p>Exemplo para uma página servida no mesmo host da API.</p></div><button class="copy-button" type="button" data-copy-target="fetch-example">Copiar</button></div>
+          <pre id="fetch-example"><code>const apiBaseUrl = window.location.origin;
+const params = new URLSearchParams({
+  repos: "OctoCards,LinkKeeper",
+  owner: "SamuelBProenca"
+});
+const requestUrl = new URL("/api/cards", apiBaseUrl);
+requestUrl.search = params.toString();
+
+const response = await fetch(requestUrl);
+const result = await response.json();
+
+if (!response.ok) {
+  throw new Error(result.error?.message ?? "Falha ao consultar OctoCards.");
+}
+
+console.log(result);</code></pre>
+        </div>
+        <p class="docs-note">No PowerShell, use <code>curl.exe</code> se <code>curl</code> chamar o alias do próprio PowerShell.</p>
+      </section>
+
+      <section class="docs-section" id="local" aria-labelledby="local-title">
+        <h2 id="local-title">Executar localmente, sem o playground</h2>
+        <p>O backend atende as mesmas rotas da API. Com <code>PLAYGROUND_ENABLED=false</code>, ele não serve a vitrine de repositórios em <code>/</code>; a documentação, o OpenAPI e a API continuam disponíveis.</p>
+        <ol class="docs-steps">
+          <li>Instale Node.js e npm.</li>
+          <li>Entre em <code>backend</code> e instale as dependências.</li>
+          <li>Copie <code>.env.example</code> para <code>.env</code> e ajuste as variáveis.</li>
+          <li>Inicie o backend e faça chamadas ao endereço local pelo terminal ou pela sua aplicação.</li>
+        </ol>
+        <div class="docs-example">
+          <div class="docs-example__head"><div><h3>Comandos</h3><p>Execute na raiz do repositório.</p></div><button class="copy-button" type="button" data-copy-target="local-commands">Copiar</button></div>
+          <pre id="local-commands"><code>cd backend
+npm install
+# Copie .env.example para .env e configure o ambiente.
+npm run dev</code></pre>
+        </div>
+        <div class="docs-example">
+          <div class="docs-example__head"><div><h3>Variáveis de ambiente</h3><p><code>TOKEN</code> é opcional e fica no backend.</p></div><button class="copy-button" type="button" data-copy-target="env-example">Copiar</button></div>
+          <pre id="env-example"><code>OWNER=octocat
+PORT=3000
+TOKEN=
+GITHUB_TIMEOUT_MS=10000
+PLAYGROUND_ENABLED=false</code></pre>
+        </div>
+        <p class="docs-note">Para habilitar o playground local, configure <code>PLAYGROUND_ENABLED=true</code>. Sem a variável, o padrão é <code>true</code>. Nunca coloque <code>TOKEN</code> no navegador ou no código do cliente.</p>
+      </section>
+
+      <section class="docs-section" id="rotas" aria-labelledby="rotas-title">
+        <h2 id="rotas-title">Rotas da API</h2>
+        <p><code>owner</code> é opcional; quando omitido, o servidor usa <code>OWNER</code>. Para uma coleção, envie <code>repos</code> com nomes separados por vírgulas, sem owner.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Método e rota</th><th>Parâmetros</th><th>Resposta</th></tr></thead>
+            <tbody>
+              <tr><td><code>GET /api/cards/:repo</code></td><td><code>owner</code> opcional</td><td>Um objeto de cartão</td></tr>
+              <tr><td><code>GET /api/cards</code></td><td><code>repos</code> obrigatório; <code>owner</code> opcional</td><td>Um array de cartões</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="docs-example">
+          <div class="docs-example__head"><div><h3>Consultar vários repositórios</h3><p>A ordem da resposta acompanha a ordem enviada.</p></div><button class="copy-button" type="button" data-copy-target="collection-request">Copiar</button></div>
+          <pre id="collection-request"><code>curl "http://localhost:3000/api/cards?repos=OctoCards%2CLinkKeeper&amp;owner=SamuelBProenca"</code></pre>
+        </div>
+        <p>Se qualquer item falhar, a requisição da coleção retorna um erro em vez de resultados parciais.</p>
+      </section>
+
+      <section class="docs-section" id="resposta" aria-labelledby="resposta-title">
+        <h2 id="resposta-title">Formato do cartão</h2>
+        <p>Este exemplo mostra a estrutura, com valores ilustrativos. <code>description</code> contém o README bruto em Markdown; sua aplicação escolhe como renderizá-lo.</p>
+        <div class="docs-example">
+          <div class="docs-example__head"><div><h3>Objeto de resposta</h3><p>Uma consulta de coleção retorna um array desses objetos.</p></div><button class="copy-button" type="button" data-copy-target="response-shape">Copiar</button></div>
+          <pre id="response-shape"><code>{
+  "name": "OctoCards",
+  "description": "# OctoCards\n...",
+  "principal_languages": ["TypeScript"],
+  "stars": 0,
+  "forks": 0,
+  "url": "https://github.com/OWNER/REPO",
+  "illustration_image_url": "https://..."
+}</code></pre>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Campo</th><th>Conteúdo</th></tr></thead>
+            <tbody>
+              <tr><td><code>name</code></td><td>Nome do repositório.</td></tr>
+              <tr><td><code>description</code></td><td>README em Markdown; usa <code>Sem descrição</code> quando não existe README.</td></tr>
+              <tr><td><code>principal_languages</code></td><td>Linguagens detectadas pelo GitHub.</td></tr>
+              <tr><td><code>stars</code> / <code>forks</code></td><td>Contagens retornadas pelo GitHub.</td></tr>
+              <tr><td><code>url</code></td><td>Endereço do repositório no GitHub.</td></tr>
+              <tr><td><code>illustration_image_url</code></td><td>Imagem escolhida para a capa ou um placeholder.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="docs-section" id="erros" aria-labelledby="erros-title">
+        <h2 id="erros-title">Erros e recuperação</h2>
+        <p>Respostas de erro contêm <code>error.code</code> e <code>error.message</code>. Confira o status HTTP antes de usar o corpo como cartão.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>HTTP</th><th>Código</th><th>Ação</th></tr></thead>
+            <tbody>
+              <tr><td>400</td><td><code>INVALID_REQUEST</code></td><td>Confira owner, repo e nomes da coleção.</td></tr>
+              <tr><td>401 / 403</td><td><code>GITHUB_UNAUTHORIZED</code> / <code>GITHUB_FORBIDDEN</code></td><td>Verifique a credencial e as permissões no servidor.</td></tr>
+              <tr><td>404</td><td><code>REPOSITORY_NOT_FOUND</code></td><td>Confirme owner e repo. Repositórios privados também retornam 404.</td></tr>
+              <tr><td>429</td><td><code>GITHUB_RATE_LIMITED</code></td><td>Aguarde a renovação da cota ou configure TOKEN no backend.</td></tr>
+              <tr><td>502 / 504</td><td><code>UPSTREAM_ERROR</code> / <code>GITHUB_TIMEOUT</code></td><td>Tente novamente quando o GitHub estiver disponível.</td></tr>
+              <tr><td>500</td><td><code>CONFIGURATION_ERROR</code> / <code>INTERNAL_ERROR</code></td><td>Revise configuração e logs do servidor.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="docs-section" id="limites" aria-labelledby="limites-title">
+        <h2 id="limites-title">Limites e segurança</h2>
+        <ul class="docs-list">
+          <li>O provedor implementado é GitHub e apenas repositórios públicos são retornados.</li>
+          <li>O token do GitHub pertence ao backend. Clientes da API não enviam essa credencial.</li>
+          <li>Há cache em memória de cinco minutos, limitado a 500 cartões por processo; reiniciar o servidor limpa o cache.</li>
+          <li>A cota do GitHub é compartilhada pela instância. Uma coleção sem cache pode usar várias consultas.</li>
+          <li>A API está em alpha e ainda não tem prefixo de versão; o contrato pode mudar antes de uma versão estável.</li>
+        </ul>
+        <div class="docs-links">
+          <a href="/swagger.yaml">Abrir especificação OpenAPI</a>
+          <a href="/GUIA_DO_OCTOCARDS.md">Ler o guia completo</a>
+          <a href="https://github.com/SamuelBProenca/OctoCards" target="_blank" rel="noopener noreferrer">Ver o código-fonte</a>
+        </div>
+      </section>
+      <p class="copy-status" id="copy-status" role="status" aria-live="polite"></p>
+    </article>
+  </main>
+
+  <footer class="docs-footer">
+    <div class="docs-footer__inner"><a href="/">octocards</a><span>API alpha · documentação em português</span><a href="/swagger.yaml">OpenAPI</a></div>
+  </footer>
+</body>
+</html>

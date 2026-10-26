@@ -86,6 +86,143 @@
     const excerpt = lines.find((line) => line.length > 12) || lines[0] || "Este repositório ainda não tem uma descrição disponível.";
     return excerpt.length > 166 ? excerpt.slice(0, 163).trimEnd() + "…" : excerpt;
   };
+  const appendReadmeInline = (target, text) => {
+    const pattern = /(!\[[^\]]*\]\([^)]+\)|\[[^\]]+\]\([^)]+\)|`[^`]+`|\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|_[^_]+_)/g;
+    let cursor = 0;
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      if (match.index > cursor) target.append(document.createTextNode(text.slice(cursor, match.index)));
+      const token = match[0];
+      const image = /^!\[([^\]]*)\]\(([^)]+)\)$/.exec(token);
+      const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token);
+      if (image) {
+        target.append(document.createTextNode(image[1] ? "[imagem: " + image[1] + "]" : "[imagem]"));
+      } else if (link) {
+        const href = safeWebUrl(link[2].trim().replace(/^<|>$/g, ""));
+        if (href) {
+          const anchor = element("a", "readme-link", link[1]);
+          anchor.href = href;
+          anchor.target = "_blank";
+          anchor.rel = "noopener noreferrer";
+          target.append(anchor);
+        } else {
+          target.append(document.createTextNode(link[1]));
+        }
+      } else if (token.startsWith("`")) {
+        target.append(element("code", "readme-inline-code", token.slice(1, -1)));
+      } else if (token.startsWith("**") || token.startsWith("__")) {
+        target.append(element("strong", "", token.slice(2, -2)));
+      } else {
+        target.append(element("em", "", token.slice(1, -1)));
+      }
+      cursor = pattern.lastIndex;
+    }
+    if (cursor < text.length) target.append(document.createTextNode(text.slice(cursor)));
+  };
+  const isReadmeBlockStart = (line) =>
+    /^(#{1,6}\s|\x60{3,}|~{3,}|>\s?|[-*+]\s+|\d+[.)]\s+|(?:[-*_]\s*){3,}$)/.test(line.trim());
+  const renderReadmeContent = (markdown) => {
+    const content = element("div", "repo-card__readme-content");
+    const source = String(markdown || "");
+    if (!source || source === "Sem descrição") {
+      content.append(element("p", "readme-empty", "Este repositório não tem um README disponível."));
+      return content;
+    }
+
+    const lines = source.replace(/\r/g, "").split("\n");
+    let index = 0;
+    while (index < lines.length) {
+      const line = lines[index].trim();
+      if (!line) {
+        index += 1;
+        continue;
+      }
+
+      const fence = /^(\x60{3,}|~{3,})/.exec(line);
+      if (fence) {
+        const marker = fence[1][0];
+        index += 1;
+        const codeLines = [];
+        while (index < lines.length && !new RegExp("^\\s*" + marker + "{3,}").test(lines[index])) {
+          codeLines.push(lines[index]);
+          index += 1;
+        }
+        if (index < lines.length) index += 1;
+        const pre = element("pre", "readme-code");
+        pre.append(element("code", "", codeLines.join("\n")));
+        content.append(pre);
+        continue;
+      }
+
+      const heading = /^(#{1,6})\s+(.+)$/.exec(line);
+      if (heading) {
+        const level = Math.min(heading[1].length + 2, 6);
+        const title = element("h" + level, "readme-heading");
+        appendReadmeInline(title, heading[2].replace(/\s+#+\s*$/, ""));
+        content.append(title);
+        index += 1;
+        continue;
+      }
+
+      if (/^(?:[-*_]\s*){3,}$/.test(line)) {
+        content.append(element("hr", "readme-rule"));
+        index += 1;
+        continue;
+      }
+
+      if (/^>\s?/.test(line)) {
+        const quoteLines = [];
+        while (index < lines.length && /^\s*>\s?/.test(lines[index])) {
+          quoteLines.push(lines[index].replace(/^\s*>\s?/, "").trim());
+          index += 1;
+        }
+        const quote = element("blockquote", "readme-quote");
+        const paragraph = element("p");
+        appendReadmeInline(paragraph, quoteLines.join(" "));
+        quote.append(paragraph);
+        content.append(quote);
+        continue;
+      }
+
+      const firstListItem = /^(?:[-*+]\s+|\d+[.)]\s+)/.exec(line);
+      if (firstListItem) {
+        const ordered = /^\d/.test(firstListItem[0]);
+        const list = element(ordered ? "ol" : "ul", "readme-list");
+        while (index < lines.length) {
+          const item = /^(?:[-*+]\s+|\d+[.)]\s+)(.+)$/.exec(lines[index].trim());
+          if (!item || /^\d/.test(lines[index].trim()) !== ordered) break;
+          const listItem = element("li");
+          appendReadmeInline(listItem, item[1]);
+          list.append(listItem);
+          index += 1;
+        }
+        content.append(list);
+        continue;
+      }
+
+      const paragraphLines = [line];
+      index += 1;
+      while (index < lines.length && lines[index].trim() && !isReadmeBlockStart(lines[index])) {
+        paragraphLines.push(lines[index].trim());
+        index += 1;
+      }
+      const paragraph = element("p", "readme-paragraph");
+      appendReadmeInline(paragraph, paragraphLines.join(" "));
+      content.append(paragraph);
+    }
+    return content;
+  };
+  const createReadmePanel = (markdown) => {
+    const details = element("details", "repo-card__readme");
+    details.append(element("summary", "repo-card__readme-toggle", "Ler README"));
+    details.addEventListener("toggle", () => {
+      if (details.open && details.dataset.loaded !== "true") {
+        details.append(renderReadmeContent(markdown));
+        details.dataset.loaded = "true";
+      }
+    });
+    return details;
+  };
   const showToast = (message) => {
     toast.textContent = message;
     toast.classList.add("is-visible");
@@ -134,7 +271,7 @@
     const imageUrl = safeWebUrl(card.illustration_image_url);
     if (imageUrl && !imageUrl.includes("placehold.co")) {
       const image = element("img", "repo-card__image");
-      image.alt = "";
+      image.alt = "Capa do repositório " + (card.name || "Repositório");
       image.loading = "lazy";
       image.decoding = "async";
       image.addEventListener("load", () => art.classList.add("has-image"), { once: true });
@@ -151,6 +288,7 @@
   };
   const createCard = (card, owner, index) => {
     const article = element("article", "repo-card");
+    article.style.setProperty("--card-index", String(Math.min(index, 5)));
     article.append(createArt(card, index));
     const body = element("div", "repo-card__body");
     const identity = element("p", "repo-card__owner", owner + " / repository");
@@ -167,8 +305,9 @@
       ? card.principal_languages.slice(0, 4)
       : ["Desconhecido"];
     languageNames.forEach((language) => languages.append(element("span", "language-tag", language)));
+    const readmePanel = createReadmePanel(card.description);
     const actions = element("div", "repo-card__actions");
-    const githubLink = element("a", "repo-card__github", "Ver no GitHub ↗");
+    const githubLink = element("a", "repo-card__github", "Ver no GitHub");
     githubLink.href = repositoryUrl;
     githubLink.target = "_blank";
     githubLink.rel = "noopener noreferrer";
@@ -185,13 +324,22 @@
       }
     });
     actions.append(githubLink, copyButton);
-    body.append(identity, title, description, metrics, languages, actions);
+    body.append(identity, title, description, metrics, languages, readmePanel, actions);
     article.append(body);
     return article;
   };
   const renderCards = (cards, owner) => {
     const fragment = document.createDocumentFragment();
-    cards.forEach((card, index) => fragment.append(createCard(card, owner, index)));
+    if (cards.length === 0) {
+      const empty = element("div", "empty-state");
+      empty.append(
+        element("h3", "empty-state__title", "Nenhum cartão nesta resposta"),
+        element("p", "empty-state__copy", "Confira o nome da conta e dos repositórios e faça uma nova consulta.")
+      );
+      fragment.append(empty);
+    } else {
+      cards.forEach((card, index) => fragment.append(createCard(card, owner, index)));
+    }
     cardsGrid.replaceChildren(fragment);
   };
   const syncPageAddress = (owner, repos) => {
