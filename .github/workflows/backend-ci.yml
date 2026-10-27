@@ -1,0 +1,43 @@
+name: Backend CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - backend/**
+      - .github/workflows/backend-ci.yml
+      - .github/workflows/codeql.yml
+      - .github/dependabot.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - backend/**
+      - .github/workflows/backend-ci.yml
+      - .github/workflows/codeql.yml
+      - .github/dependabot.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npx tsc --noEmit
+      - run: npm run test:build
+      - run: npm audit --omit=dev
