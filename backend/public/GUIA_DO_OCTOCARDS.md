@@ -183,7 +183,7 @@ Os testes cobrem o mapeamento da resposta, repositórios privados, README ausent
 
 - A fonte de dados implementada é GitHub; não há adaptadores para outros serviços ainda.
 - Cada cartão é montado como um contrato fixo. A coleção precisa pertencer a um único owner.
-- A árvore recursiva do GitHub pode vir marcada como truncada em repositórios muito grandes. Imagens citadas diretamente no README ainda podem ser encontradas, mas nem todo arquivo será necessariamente considerado.
+- A busca da capa examina até 250.000 caracteres do README, no máximo 100 candidatas e até 5.000 entradas da árvore do GitHub. Árvores truncadas geram diagnóstico no log; arquivos além desses limites podem não ser considerados. O README completo continua no JSON do cartão.
 - O leitor formata uma parte comum do Markdown; tabelas complexas, conteúdo HTML, imagens internas do README e extensões específicas do GitHub ainda não são renderizados como o GitHub.
 - O cache é volátil e por processo; não há persistência, ETag ou cache compartilhado.
 - A seleção automática não conhece a intenção visual do autor em todos os casos. Quando não encontra imagem confiável, escolhe uma candidata do repositório ou usa placeholder.

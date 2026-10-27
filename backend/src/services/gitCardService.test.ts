@@ -184,6 +184,58 @@ describe('gitCardService', () => {
         expect(JSON.stringify(warning.mock.calls)).not.toContain('never-log-this');
     });
 
+    it('stops image candidate processing at the limit and reports truncated GitHub trees', async () => {
+        const { get, client } = createClient();
+        const warning = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        let entriesVisited = 0;
+        const treeEntries = {
+            *[Symbol.iterator]() {
+                for (let index = 0; index < 1000; index += 1) {
+                    entriesVisited += 1;
+                    yield { path: `images/image-${index}.png`, type: 'blob' };
+                }
+            }
+        };
+        get
+            .mockResolvedValueOnce({ data: { private: false, name: 'project', default_branch: 'main' } })
+            .mockResolvedValueOnce({ data: '' })
+            .mockResolvedValueOnce({ data: {} })
+            .mockResolvedValueOnce({ data: { truncated: true, tree: treeEntries } });
+
+        const card = await createGitCardService(client).fetchRepositoryData('example', 'project');
+
+        expect(entriesVisited).toBe(100);
+        expect(card.illustration_image_url).toBe(
+            'https://raw.githubusercontent.com/example/project/main/images/image-0.png'
+        );
+        expect(warning).toHaveBeenCalledWith('OctoCards repository image tree was truncated', {
+            code: 'GITHUB_TREE_TRUNCATED'
+        });
+    });
+
+    it('caps tree traversal when a repository has many non-image files', async () => {
+        const { get, client } = createClient();
+        let entriesVisited = 0;
+        const treeEntries = {
+            *[Symbol.iterator]() {
+                for (let index = 0; index < 6000; index += 1) {
+                    entriesVisited += 1;
+                    yield { path: `docs/file-${index}.md`, type: 'blob' };
+                }
+            }
+        };
+        get
+            .mockResolvedValueOnce({ data: { private: false, name: 'project', default_branch: 'main' } })
+            .mockResolvedValueOnce({ data: '' })
+            .mockResolvedValueOnce({ data: {} })
+            .mockResolvedValueOnce({ data: { truncated: false, tree: treeEntries } });
+
+        const card = await createGitCardService(client).fetchRepositoryData('example', 'project');
+
+        expect(entriesVisited).toBe(5000);
+        expect(card.illustration_image_url).toBe('https://placehold.co/600x400');
+    });
+
     it('translates repository not found and rate limit responses', async () => {
         const missing = createClient();
         missing.get.mockRejectedValueOnce(githubError(404));
