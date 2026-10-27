@@ -333,6 +333,12 @@ export const createGitCardService = (client: GithubClient = createGithubClient()
             if (isGithubRateLimited(error)) {
                 throw normalizeGithubError(error);
             }
+
+            // Keep optional image failures diagnosable without logging response bodies,
+            // request headers, URLs, or other potentially sensitive transport details.
+            console.warn('OctoCards image lookup failed', axios.isAxiosError(error)
+                ? { status: error.response?.status, code: error.code || 'UNKNOWN' }
+                : { code: 'NON_AXIOS_ERROR' });
         }
 
         const selected = candidates

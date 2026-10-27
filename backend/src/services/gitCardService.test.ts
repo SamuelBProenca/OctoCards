@@ -165,6 +165,25 @@ describe('gitCardService', () => {
         ).rejects.toMatchObject({ code: 'UPSTREAM_ERROR', statusCode: 502 });
     });
 
+    it('keeps image lookup optional but records sanitized diagnostics for upstream failures', async () => {
+        const { get, client } = createClient();
+        const warning = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        get
+            .mockResolvedValueOnce({ data: { private: false, name: 'project', default_branch: 'main' } })
+            .mockResolvedValueOnce({ data: '' })
+            .mockResolvedValueOnce({ data: {} })
+            .mockRejectedValueOnce(githubError(500, { authorization: 'never-log-this' }, 'ERR_BAD_RESPONSE'));
+
+        const card = await createGitCardService(client).fetchRepositoryData('example', 'project');
+
+        expect(card.illustration_image_url).toBe('https://placehold.co/600x400');
+        expect(warning).toHaveBeenCalledWith('OctoCards image lookup failed', {
+            status: 500,
+            code: 'ERR_BAD_RESPONSE'
+        });
+        expect(JSON.stringify(warning.mock.calls)).not.toContain('never-log-this');
+    });
+
     it('translates repository not found and rate limit responses', async () => {
         const missing = createClient();
         missing.get.mockRejectedValueOnce(githubError(404));
