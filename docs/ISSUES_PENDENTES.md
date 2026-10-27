@@ -1,0 +1,37 @@
+# Backlog local — OctoCards
+
+Itens derivados da Auditoria_Tecnica_OctoCards e do OctoCards_Grafo_de_Riscos recebidos. Não inserir tokens, credenciais ou dados privados em issues/logs.
+
+A integração recusou criação remota com 403 Resource not accessible by integration. GitHub CLI existe, mas o login local está inválido. Nenhuma issue remota foi criada; este arquivo permite retomar após restaurar autenticação.
+
+## [P1] Orçamento compartilhado GitHub — A02
+12 chamadas/minuto/IP em memória não impõem orçamento global. Medir custo por endpoint/lote e avaliar store/semáforo se houver múltiplas instâncias.
+**Aceite:** orçamento documentado; 429/Retry-After; testes burst, clientes, retries/réplicas sem exposição de credencial.
+
+## [P1] Privacidade de imagens externas — A04
+HTTPS de terceiros pode revelar IP/conexão do visitante. O backend não faz fetch, então não é SSRF de servidor.
+**Trabalho:** decidir carregamento direto com política referrer, allowlist ou proxy protegido contra SSRF, redirects, IP privado, tamanho e MIME.
+**Aceite:** política e testes HTTPS/HTTP/protocol-relative/redirect; README continua DOM seguro.
+
+## [P1] Secret Scanning/Push Protection — A10
+Varredura anterior não achou padrão reconhecível no histórico; configuração GitHub não confirmada.
+**Trabalho:** administrador verificar/habilitar opções e tratar alertas; rotacionar credenciais sem registrar valor.
+**Aceite:** estado e alertas registrados como resolvidos.
+
+## [P2] Contrato TypeScript/OpenAPI — A13
+PropsGitCard e Swagger duplicam contrato; description contém README bruto e versões divergem.
+**Trabalho:** definir semântica compatível, alinhar versões e gerar tipos/schema ou validar fixture no CI.
+**Aceite:** campos documentados e CI detecta drift.
+
+## [P2] Falha/limite global de lote — A03
+Até três chamadas por lote; qualquer falha rejeita tudo; limite não cobre outros lotes.
+**Trabalho:** decidir atomicidade versus parcialidade e necessidade de semáforo/backpressure global.
+**Aceite:** decisão documentada; parcialidade versionada/testada se adotada; limite global testado se necessário.
+
+## [P3] Script manual placeholder — A12
+backend/testOctoCardRepos.ts usa nomes placeholder apesar de Jest cobrir cenários sem rede.
+**Trabalho:** confirmar consumidor; remover ou documentar parâmetros/uso.
+**Aceite:** propósito definido; CI independente de GitHub/token.
+
+## Corrigidos
+A01 limites; A05 logs; A06 build; A07 licença; A08 HTTP/headless; A09 owner; A11 imagens. A02/A03/A10/A12 permanecem parciais.
