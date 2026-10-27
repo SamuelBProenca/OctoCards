@@ -92,7 +92,7 @@ GET /api/cards?repos=OctoCards%2CLinkKeeper&owner=SamuelBProenca
 
 Retorna uma lista na ordem solicitada. Se qualquer item falhar, a API retorna o erro correspondente para a requisição inteira, sem uma coleção parcial.
 
-owner é opcional nos dois endpoints; quando omitido, o backend usa OWNER. A documentação completa está em /swagger.yaml.
+owner é opcional nos dois endpoints; quando omitido, o backend usa OWNER. O owner aceita até 39 caracteres; cada nome de repositório aceita até 100 letras ASCII, números, ponto, hífen ou sublinhado. A coleção aceita até 10 itens e 2048 caracteres no parâmetro repos; nomes repetidos sem diferenciar maiúsculas/minúsculas são consultados uma vez. A documentação completa está em /swagger.yaml.
 
 ### Campos do cartão
 
