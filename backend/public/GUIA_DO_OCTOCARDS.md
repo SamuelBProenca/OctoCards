@@ -30,11 +30,16 @@ PORT=3000
 TOKEN=
 GITHUB_TIMEOUT_MS=10000
 PLAYGROUND_ENABLED=false
+API_RATE_LIMIT_MAX=12
+API_RATE_LIMIT_WINDOW_MS=60000
+TRUSTED_PROXIES=
 ~~~
 
 OWNER define a conta usada quando a URL não informa owner. PORT escolhe a porta do servidor. TOKEN é opcional, mas autenticar as consultas evita que o playground dependa apenas da cota pública não autenticada. Use uma credencial de servidor com acesso de leitura necessário aos repositórios públicos. O valor deve ficar no backend e nunca no JavaScript do navegador. O arquivo .env está ignorado pelo Git; não o adicione ao commit.
 
 GITHUB_TIMEOUT_MS é o tempo máximo de cada chamada ao GitHub em milissegundos. O padrão é 10000. O servidor rejeita valores que não sejam inteiros positivos.
+
+API_RATE_LIMIT_MAX e API_RATE_LIMIT_WINDOW_MS definem o limite por endereço IP; os padrões permitem 12 chamadas a cada 60000 ms. O armazenamento é em memória e independente em cada processo. Em hospedagem atrás de proxy reverso, informe os IPs/CIDRs exatos em TRUSTED_PROXIES para obter o IP real do cliente. Sem uma configuração confiável, cabeçalhos encaminhados são ignorados. A aplicação limita requisições HTTP; a cota externa do GitHub continua compartilhada pela credencial do servidor.
 
 Inicie o serviço:
 
@@ -115,6 +120,7 @@ As respostas de erro seguem o formato JSON com um objeto error contendo code e m
 | 401 | GITHUB_UNAUTHORIZED | O GitHub rejeitou a credencial configurada. |
 | 403 | GITHUB_FORBIDDEN | O GitHub negou o acesso por permissão. |
 | 404 | REPOSITORY_NOT_FOUND | Repositório inexistente, privado ou indisponível. |
+| 429 | API_RATE_LIMITED | O cliente excedeu o limite local por IP; aguarde o cabeçalho Retry-After. |
 | 429 | GITHUB_RATE_LIMITED | A cota do GitHub usada pelo servidor acabou; configure TOKEN ou aguarde a renovação. |
 | 502 | UPSTREAM_ERROR | Falha ao consultar o GitHub. |
 | 504 | GITHUB_TIMEOUT | O GitHub não respondeu dentro do tempo configurado. |
@@ -127,8 +133,8 @@ Navegador opcional
   └─ Cliente próprio: chama a API e recebe JSON
                   │
                   ▼
-Express (backend/src/index.ts)
-  ├─ arquivos estáticos em backend/public
+Express (backend/src/index.ts inicia; backend/src/app.ts monta)
+  ├─ arquivos estáticos e documentação em backend/public
   └─ /api/cards → rotas → controller
                          ├─ valida parâmetros e esconde detalhes internos
                          └─ service

@@ -29,7 +29,12 @@ Set these values in `backend/.env`:
 | `PORT` | Local server port. | `3000` |
 | `TOKEN` | Optional GitHub token used by the backend to authenticate upstream requests and reduce anonymous rate-limit issues. Keep it secret and never put it in browser code. | Leave blank or set your token |
 | `GITHUB_TIMEOUT_MS` | Timeout for GitHub requests, in milliseconds. | `10000` |
+| `API_RATE_LIMIT_MAX` | Maximum API requests allowed per client IP in one window. | `12` |
+| `API_RATE_LIMIT_WINDOW_MS` | Length of the per-IP rate-limit window in milliseconds. | `60000` |
+| `TRUSTED_PROXIES` | Optional comma-separated proxy IPs/CIDRs used to read client IPs from forwarded headers. Configure only the addresses of proxies you operate. | Leave blank for direct connections |
 | `PLAYGROUND_ENABLED` | Serves the optional visual client at `/` when `true`; when `false`, the API, docs, and OpenAPI file stay available. | `false` |
+
+The API rate limit is in-memory and per process. If OctoCards runs behind a reverse proxy, configure its exact IP/CIDR in `TRUSTED_PROXIES`; otherwise all visitors may be counted under the proxy address. Do not trust arbitrary forwarded headers.
 
 ## Call the API
 

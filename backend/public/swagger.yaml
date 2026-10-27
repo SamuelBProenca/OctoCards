@@ -186,12 +186,12 @@ components:
           schema:
             $ref: '#/components/schemas/ApiError'
     RateLimited:
-      description: Cota da API do GitHub esgotada; aguarde a renovação ou configure TOKEN no backend.
+      description: Limite por IP do OctoCards atingido (API_RATE_LIMITED) ou cota do GitHub esgotada (GITHUB_RATE_LIMITED). Aguarde o período indicado em Retry-After.
       headers:
         Retry-After:
           schema:
             type: string
-          description: Presente quando informado pelo GitHub
+          description: Tempo de espera em segundos, quando fornecido pelo limite local ou pelo GitHub.
       content:
         application/json:
           schema:

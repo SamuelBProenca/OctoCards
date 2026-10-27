@@ -107,9 +107,12 @@ npm run dev</code></pre>
 PORT=3000
 TOKEN=
 GITHUB_TIMEOUT_MS=10000
-PLAYGROUND_ENABLED=false</code></pre>
+PLAYGROUND_ENABLED=false
+API_RATE_LIMIT_MAX=12
+API_RATE_LIMIT_WINDOW_MS=60000
+TRUSTED_PROXIES=</code></pre>
         </div>
-        <p class="docs-note">Para habilitar o playground local, configure <code>PLAYGROUND_ENABLED=true</code>. Sem a variável, o padrão é <code>true</code>. Nunca coloque <code>TOKEN</code> no navegador ou no código do cliente.</p>
+        <p class="docs-note">Para habilitar o playground local, configure <code>PLAYGROUND_ENABLED=true</code>. Sem a variável, o padrão é <code>true</code>. Nunca coloque <code>TOKEN</code> no navegador ou no código do cliente. O limite padrão é 12 requisições por IP a cada 60 segundos; esse controle é em memória por processo.</p>
       </section>
 
       <section class="docs-section" id="rotas" aria-labelledby="rotas-title">
@@ -171,7 +174,7 @@ PLAYGROUND_ENABLED=false</code></pre>
               <tr><td>400</td><td><code>INVALID_REQUEST</code></td><td>Confira owner, repo e nomes da coleção.</td></tr>
               <tr><td>401 / 403</td><td><code>GITHUB_UNAUTHORIZED</code> / <code>GITHUB_FORBIDDEN</code></td><td>Verifique a credencial e as permissões no servidor.</td></tr>
               <tr><td>404</td><td><code>REPOSITORY_NOT_FOUND</code></td><td>Confirme owner e repo. Repositórios privados também retornam 404.</td></tr>
-              <tr><td>429</td><td><code>GITHUB_RATE_LIMITED</code></td><td>Aguarde a renovação da cota ou configure TOKEN no backend.</td></tr>
+              <tr><td>429</td><td><code>API_RATE_LIMITED</code> / <code>GITHUB_RATE_LIMITED</code></td><td>Aguarde o cabeçalho <code>Retry-After</code>; o limite pode ser da API OctoCards ou da cota do GitHub.</td></tr>
               <tr><td>502 / 504</td><td><code>UPSTREAM_ERROR</code> / <code>GITHUB_TIMEOUT</code></td><td>Tente novamente quando o GitHub estiver disponível.</td></tr>
               <tr><td>500</td><td><code>CONFIGURATION_ERROR</code> / <code>INTERNAL_ERROR</code></td><td>Revise configuração e logs do servidor.</td></tr>
             </tbody>
@@ -184,6 +187,8 @@ PLAYGROUND_ENABLED=false</code></pre>
         <ul class="docs-list">
           <li>O provedor implementado é GitHub e apenas repositórios públicos são retornados.</li>
           <li>O token do GitHub pertence ao backend. Clientes da API não enviam essa credencial.</li>
+          <li>Por padrão, cada IP pode fazer 12 chamadas de API por janela de 60 segundos. Ajuste <code>API_RATE_LIMIT_MAX</code> e <code>API_RATE_LIMIT_WINDOW_MS</code> no servidor. A cota fica em memória por processo.</li>
+          <li>Se houver proxy reverso, defina somente os IPs/CIDRs confiáveis em <code>TRUSTED_PROXIES</code>; sem isso o backend ignora cabeçalhos encaminhados para identificar clientes.</li>
           <li>Há cache em memória de cinco minutos, limitado a 500 cartões por processo; reiniciar o servidor limpa o cache.</li>
           <li>A cota do GitHub é compartilhada pela instância. Uma coleção sem cache pode usar várias consultas.</li>
           <li>A API está em alpha e ainda não tem prefixo de versão; o contrato pode mudar antes de uma versão estável.</li>

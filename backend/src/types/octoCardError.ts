@@ -4,6 +4,7 @@ export type OctoCardErrorCode =
     | "GITHUB_UNAUTHORIZED"
     | "GITHUB_FORBIDDEN"
     | "GITHUB_RATE_LIMITED"
+    | "API_RATE_LIMITED"
     | "GITHUB_TIMEOUT"
     | "CONFIGURATION_ERROR"
     | "UPSTREAM_ERROR"
