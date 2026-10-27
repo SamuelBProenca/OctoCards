@@ -112,12 +112,12 @@ components:
       name: owner
       in: query
       required: false
-      description: Conta ou organização do GitHub, até 39 caracteres ASCII entre letras, números e hífen. Se omitido, usa OWNER configurado no servidor.
+      description: Conta ou organização do GitHub, até 39 caracteres ASCII alfanuméricos e hífen, sem hífen no início/fim ou hífens consecutivos. Se omitido, usa OWNER configurado no servidor.
       schema:
         type: string
         minLength: 1
         maxLength: 39
-        pattern: "^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$"
+        pattern: "^(?!.*--)[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$"
       example: SamuelBProenca
   schemas:
     GitCard:

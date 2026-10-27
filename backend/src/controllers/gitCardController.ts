@@ -10,7 +10,7 @@ const MAX_REPOS_PER_BATCH = 10;
 const MAX_REPOS_QUERY_LENGTH = 2048;
 
 const isValidOwner = (value: string): boolean =>
-    value.length <= MAX_OWNER_NAME_LENGTH && /^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/.test(value);
+    value.length <= MAX_OWNER_NAME_LENGTH && /^(?!.*--)[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/.test(value);
 
 const isValidRepositoryName = (value: string): boolean =>
     value !== '.' &&
