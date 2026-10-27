@@ -140,7 +140,8 @@ Express (backend/src/index.ts)
 
 ### Peças principais
 
-- backend/src/index.ts: inicia o Express, serve o playground e conecta /api/cards.
+- backend/src/app.ts: cria a aplicação Express, registra middlewares/rotas e decide se serve o playground.
+- backend/src/index.ts: carrega a configuração e inicia o listener HTTP.
 - backend/src/routes/gitCardRoutes.ts: declara as duas rotas GET.
 - backend/src/controllers/gitCardController.ts: valida owner/repo, chama o serviço e uniformiza erros.
 - backend/src/services/gitCardService.ts: autentica as chamadas de saída ao GitHub, aplica cache, coleta README/linguagens/imagem e monta o cartão.
