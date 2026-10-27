@@ -359,8 +359,10 @@ export const createGitCardService = (client: GithubClient = createGithubClient()
         if (repoInfo.private !== false) {
             throw new OctoCardError('REPOSITORY_NOT_FOUND', 404, 'Repository not found.');
         }
-        const readmeContent = await fetchRepoReadme(owner, repo);
-        const principalLanguages = await fetchRepoLanguages(owner, repo);
+        const [readmeContent, principalLanguages] = await Promise.all([
+            fetchRepoReadme(owner, repo),
+            fetchRepoLanguages(owner, repo)
+        ]);
         const illustrationImage = await fetchRepoIllustrationImage(
             owner,
             repo,

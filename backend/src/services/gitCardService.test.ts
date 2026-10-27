@@ -57,6 +57,33 @@ describe('gitCardService', () => {
         );
     });
 
+    it('starts README and language requests together after confirming the repository is public', async () => {
+        const { get, client } = createClient();
+        let resolveReadme!: (value: { data: string }) => void;
+        let resolveLanguages!: (value: { data: Record<string, number> }) => void;
+        const readmeResponse = new Promise<{ data: string }>((resolve) => { resolveReadme = resolve; });
+        const languagesResponse = new Promise<{ data: Record<string, number> }>((resolve) => { resolveLanguages = resolve; });
+
+        get
+            .mockResolvedValueOnce({ data: { private: false, name: 'project', default_branch: 'main' } })
+            .mockImplementationOnce(() => readmeResponse)
+            .mockImplementationOnce(() => languagesResponse)
+            .mockResolvedValueOnce({ data: { tree: [] } });
+
+        const cardPromise = createGitCardService(client).fetchRepositoryData('example', 'project');
+        await new Promise<void>((resolve) => setImmediate(resolve));
+
+        expect(get).toHaveBeenCalledTimes(3);
+        expect(get.mock.calls[1][0]).toContain('/readme');
+        expect(get.mock.calls[2][0]).toContain('/languages');
+
+        resolveReadme({ data: '# Project' });
+        resolveLanguages({ data: { TypeScript: 10 } });
+        const card = await cardPromise;
+        expect(card.description).toBe('# Project');
+        expect(card.principal_languages).toEqual(['TypeScript']);
+    });
+
     it('prefers repository banners and resolves nested README image paths', async () => {
         const { get, client } = createClient();
         get
