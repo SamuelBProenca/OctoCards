@@ -4,8 +4,10 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
-    "start": "ts-node src/index.ts",
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-public.js",
+    "start": "node dist/src/index.js",
     "test": "jest --preset=ts-jest --runInBand src",
+    "test:build": "npm run build && node scripts/smoke-build.js",
     "test:repos": "ts-node testOctoCardRepos.ts"
   },
   "keywords": [],

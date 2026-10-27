@@ -157,12 +157,22 @@ Express (backend/src/index.ts inicia; backend/src/app.ts monta)
 
 O token só é usado nas chamadas feitas pelo backend ao GitHub. O navegador não recebe essa credencial. O cache é local ao processo: reiniciar o servidor o limpa, e várias instâncias não compartilham o mesmo cache.
 
-## 6. Testes e verificações
+## 6. Build, testes e verificações
+
+Para iniciar a versão de produção, compile o backend e depois execute o JavaScript gerado:
+
+~~~sh
+npm run build
+npm start
+~~~
+
+O build grava o servidor em dist/src e copia os arquivos do site e da documentação para dist/public. npm run test:build compila e inicia um servidor temporário para verificar por HTTP a raiz API-only, a documentação, o CSS, o OpenAPI e a rota de API.
 
 Na pasta backend:
 
 ~~~sh
 npm test
+npm run test:build
 npx tsc --noEmit
 node --check public/app.js
 ~~~

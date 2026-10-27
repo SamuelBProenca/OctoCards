@@ -19,6 +19,10 @@ npm run dev
 
 Before starting, copy `.env.example` to `.env` (PowerShell: `Copy-Item .env.example .env`; macOS/Linux or Git Bash: `cp .env.example .env`). The template starts OctoCards in API-only mode. The server runs at `http://localhost:3000`; the root path returns service information, the guide is at `/docs/`, and requests go to `/api/cards`. To also serve the visual playground at `/`, set `PLAYGROUND_ENABLED=true` in `.env` and restart the server.
 
+## Build and run for production
+
+Run npm run build to compile the TypeScript server and copy backend/public into backend/dist/public. Then run npm start; production starts the compiled JavaScript with Node and does not require ts-node.
+
 ## Configure
 
 Set these values in `backend/.env`:
