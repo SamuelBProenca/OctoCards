@@ -133,3 +133,8 @@ Validacao apos a alteracao: Jest local com 5 suites e 33/33 testes aprovados; np
 O check remoto backend continua falhando na descoberta da suite backend/src/tests/gitCardService.test.ts, vazia na main publica. O log confirma 5 suites e 33 testes aprovados, mas Jest retorna erro porque a sexta suite nao tem teste. Esse arquivo ja estava removido no worktree antes desta etapa; nenhum teste foi removido ou ocultado por esta alteracao. Aguardo autorizacao do usuario antes de decidir como tratar o artefato legado. A pasta backend/tests/ que ja estava nao rastreada tambem foi preservada.
 
 O audit completo de desenvolvimento ainda registra 7 alertas baixos pela cadeia Jest/deepmerge 4.3.1, sem versao corrigida publicada; por decisao do usuario, aguardamos upstream sem override ou downgrade. O audit de producao segue zerado.
+## 11. Resolucao da suite vazia - 28/10/2026
+
+Com autorizacao do usuario, o commit 12ab4bc removeu backend/src/tests/gitCardService.test.ts. O historico mostra que o arquivo foi adicionado vazio em 26/02/2025 (commit 54be2ba) junto da configuracao inicial do backend e nunca teve conteudo. Portanto, ele nao exercia testes antigos nem cobria funcao removida. A suite real de gitCardService continua em backend/src/services/gitCardService.test.ts com 12 testes.
+
+Apos a remocao: npm test passou com 5 suites e 33/33 testes; npm run test:build passou, incluindo compilacao e smoke de producao. No PR #15, Analyze JavaScript and TypeScript, CodeQL e backend passaram. O commit conteve somente a exclusao do arquivo vazio. A pasta local backend/tests/ permaneceu nao rastreada e fora do push.

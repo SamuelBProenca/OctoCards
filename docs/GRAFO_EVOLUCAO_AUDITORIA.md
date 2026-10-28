@@ -92,3 +92,18 @@ flowchart TD
 ```
 
 O commit 4d34522 liga o rate limiter explicitamente aos handlers de /swagger.yaml e /GUIA_DO_OCTOCARDS.md. Validacao local: 33/33 testes, build e smoke aprovados; auditoria de producao sem vulnerabilidades. O check CodeQL remoto passou. O check backend permanece falhando porque a main publica inclui backend/src/tests/gitCardService.test.ts vazio; 5 suites passaram e 33 testes passaram, mas Jest falha na sexta suite. Nenhum teste foi apagado ou excluido da descoberta; aguardando a decisao solicitada.
+## Resolucao da suite vazia - 28/10/2026
+
+```mermaid
+flowchart TD
+    AUTH["Usuario autorizou remover o placeholder vazio"] --> DEL["12ab4bc remove arquivo 0 bytes"]
+    DEL --> LOCAL["Jest local: 5 suites, 33/33"]
+    DEL --> BUILD["Build e smoke de producao: aprovados"]
+    DEL --> REMOTE["CI do PR"]
+    REMOTE --> TS["Analyze JS/TS: aprovado"]
+    REMOTE --> QL["CodeQL: aprovado"]
+    REMOTE --> BE["Backend: aprovado"]
+    DEL --> KEEP["backend/tests/ local nao rastreado preservado"]
+```
+
+Estado final: o placeholder nao continha testes em nenhum commit historico; o arquivo foi adicionado vazio em 26/02/2025. A suite real gitCardService.test.ts permanece em src/services com 12 casos. Apos a remocao aprovada, os testes locais e o build/smoke passaram e os tres checks remotos do PR passaram. A pasta local backend/tests/ continuou fora do commit.
