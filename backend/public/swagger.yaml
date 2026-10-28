@@ -58,14 +58,16 @@ paths:
       tags: [Cards]
       summary: Consultar vários cartões
       operationId: getCards
-      description: Retorna um array na ordem solicitada. Se qualquer repositório falhar, a resposta contém um erro em vez de resultados parciais.
+      description: Retorna até 10 cartões únicos na ordem solicitada. Nomes repetidos sem diferenciar maiúsculas/minúsculas são consultados uma vez. Se qualquer repositório falhar, a resposta contém um erro em vez de resultados parciais.
       parameters:
         - name: repos
           in: query
           required: true
-          description: Nomes separados por vírgulas; não inclua owner/repo.
+          description: De 1 a 10 nomes separados por vírgulas; cada nome pode ter até 100 caracteres; a query inteira pode ter até 2048 caracteres. Duplicatas sem diferenciar maiúsculas/minúsculas são consultadas uma vez. Não inclua owner/repo.
           schema:
             type: string
+            minLength: 1
+            maxLength: 2048
           example: OctoCards,LinkKeeper
         - $ref: '#/components/parameters/Owner'
       responses:
@@ -99,19 +101,23 @@ components:
       name: repo
       in: path
       required: true
-      description: Nome de um repositório público
+      description: Nome de um repositório público; até 100 caracteres ASCII entre letras, números, ponto, hífen e sublinhado.
       schema:
         type: string
         minLength: 1
+        maxLength: 100
+        pattern: "^[A-Za-z0-9._-]+$"
       example: OctoCards
     Owner:
       name: owner
       in: query
       required: false
-      description: Conta ou organização do GitHub. Se omitido, usa OWNER configurado no servidor.
+      description: Conta ou organização do GitHub, até 39 caracteres ASCII alfanuméricos e hífen, sem hífen no início/fim ou hífens consecutivos. Se omitido, usa OWNER configurado no servidor.
       schema:
         type: string
         minLength: 1
+        maxLength: 39
+        pattern: "^(?!.*--)[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$"
       example: SamuelBProenca
   schemas:
     GitCard:
@@ -180,12 +186,12 @@ components:
           schema:
             $ref: '#/components/schemas/ApiError'
     RateLimited:
-      description: Cota da API do GitHub esgotada; aguarde a renovação ou configure TOKEN no backend.
+      description: Limite por IP do OctoCards atingido (API_RATE_LIMITED) ou cota do GitHub esgotada (GITHUB_RATE_LIMITED). Aguarde o período indicado em Retry-After.
       headers:
         Retry-After:
           schema:
             type: string
-          description: Presente quando informado pelo GitHub
+          description: Tempo de espera em segundos, quando fornecido pelo limite local ou pelo GitHub.
       content:
         application/json:
           schema:

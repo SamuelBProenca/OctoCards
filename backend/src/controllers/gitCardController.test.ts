@@ -69,6 +69,88 @@ describe('gitCardController', () => {
         });
     });
 
+    it('accepts a batch of ten repositories', async () => {
+        const fetch = jest.spyOn(gitCardService, 'fetchRepositoryData').mockResolvedValue(card);
+        const response = createResponse();
+        const repos = Array.from({ length: 10 }, (_, index) => `repo-${index + 1}`);
+
+        await getGitCards(createRequest({}, { repos: repos.join(','), owner: 'example' }), response);
+
+        expect(fetch).toHaveBeenCalledTimes(10);
+        expect(response.status).toHaveBeenCalledWith(200);
+        expect(response.json).toHaveBeenCalledWith(Array.from({ length: 10 }, () => card));
+    });
+
+    it('rejects batches above ten before making upstream calls', async () => {
+        const fetch = jest.spyOn(gitCardService, 'fetchRepositoryData');
+        const response = createResponse();
+        const repos = Array.from({ length: 11 }, (_, index) => `repo-${index + 1}`);
+
+        await getGitCards(createRequest({}, { repos: repos.join(','), owner: 'example' }), response);
+
+        expect(fetch).not.toHaveBeenCalled();
+        expect(response.status).toHaveBeenCalledWith(400);
+        expect(response.json).toHaveBeenCalledWith({
+            error: { code: 'INVALID_REQUEST', message: expect.any(String) }
+        });
+    });
+
+    it('rejects an oversized repos query before splitting it', async () => {
+        const fetch = jest.spyOn(gitCardService, 'fetchRepositoryData');
+        const response = createResponse();
+
+        await getGitCards(createRequest({}, { repos: 'x'.repeat(2049), owner: 'example' }), response);
+
+        expect(fetch).not.toHaveBeenCalled();
+        expect(response.status).toHaveBeenCalledWith(400);
+    });
+
+    it('deduplicates repository names case-insensitively while preserving order', async () => {
+        const fetch = jest.spyOn(gitCardService, 'fetchRepositoryData').mockResolvedValue(card);
+        const response = createResponse();
+
+        await getGitCards(createRequest({}, { repos: 'First,first,Second', owner: 'example' }), response);
+
+        expect(fetch.mock.calls).toEqual([
+            ['example', 'First'],
+            ['example', 'Second']
+        ]);
+        expect(response.status).toHaveBeenCalledWith(200);
+        expect(response.json).toHaveBeenCalledWith([card, card]);
+    });
+
+    it('rejects repository names outside GitHub allowed characters or length', async () => {
+        const fetch = jest.spyOn(gitCardService, 'fetchRepositoryData').mockResolvedValue(card);
+        const slashResponse = createResponse();
+        const longNameResponse = createResponse();
+        const dotSegmentResponse = createResponse();
+
+        await getGitCard(createRequest({ repo: 'bad/name' }, { owner: 'example' }), slashResponse);
+        await getGitCard(createRequest({ repo: 'r'.repeat(101) }, { owner: 'example' }), longNameResponse);
+        await getGitCard(createRequest({ repo: '..' }, { owner: 'example' }), dotSegmentResponse);
+
+        expect(fetch).not.toHaveBeenCalled();
+        expect(slashResponse.status).toHaveBeenCalledWith(400);
+        expect(longNameResponse.status).toHaveBeenCalledWith(400);
+        expect(dotSegmentResponse.status).toHaveBeenCalledWith(400);
+    });
+
+    it('rejects owner names outside GitHub allowed characters or length', async () => {
+        const fetch = jest.spyOn(gitCardService, 'fetchRepositoryData').mockResolvedValue(card);
+        const invalidCharsResponse = createResponse();
+        const longNameResponse = createResponse();
+        const repeatedDashResponse = createResponse();
+
+        await getGitCard(createRequest({ repo: 'project' }, { owner: 'not an owner' }), invalidCharsResponse);
+        await getGitCard(createRequest({ repo: 'project' }, { owner: 'o'.repeat(40) }), longNameResponse);
+        await getGitCard(createRequest({ repo: 'project' }, { owner: 'two--dashes' }), repeatedDashResponse);
+
+        expect(fetch).not.toHaveBeenCalled();
+        expect(invalidCharsResponse.status).toHaveBeenCalledWith(400);
+        expect(longNameResponse.status).toHaveBeenCalledWith(400);
+        expect(repeatedDashResponse.status).toHaveBeenCalledWith(400);
+    });
+
     it('returns an error for the whole multi-repository request if one item fails', async () => {
         const fetch = jest.spyOn(gitCardService, 'fetchRepositoryData')
             .mockResolvedValueOnce(card)

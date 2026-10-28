@@ -30,11 +30,16 @@ PORT=3000
 TOKEN=
 GITHUB_TIMEOUT_MS=10000
 PLAYGROUND_ENABLED=false
+API_RATE_LIMIT_MAX=12
+API_RATE_LIMIT_WINDOW_MS=60000
+TRUSTED_PROXIES=
 ~~~
 
 OWNER define a conta usada quando a URL não informa owner. PORT escolhe a porta do servidor. TOKEN é opcional, mas autenticar as consultas evita que o playground dependa apenas da cota pública não autenticada. Use uma credencial de servidor com acesso de leitura necessário aos repositórios públicos. O valor deve ficar no backend e nunca no JavaScript do navegador. O arquivo .env está ignorado pelo Git; não o adicione ao commit.
 
 GITHUB_TIMEOUT_MS é o tempo máximo de cada chamada ao GitHub em milissegundos. O padrão é 10000. O servidor rejeita valores que não sejam inteiros positivos.
+
+API_RATE_LIMIT_MAX e API_RATE_LIMIT_WINDOW_MS definem o limite por endereço IP; os padrões permitem 12 chamadas a cada 60000 ms. O armazenamento é em memória e independente em cada processo. Em hospedagem atrás de proxy reverso, informe os IPs/CIDRs exatos em TRUSTED_PROXIES para obter o IP real do cliente. Sem uma configuração confiável, cabeçalhos encaminhados são ignorados. A aplicação limita requisições HTTP; a cota externa do GitHub continua compartilhada pela credencial do servidor.
 
 Inicie o serviço:
 
@@ -92,7 +97,7 @@ GET /api/cards?repos=OctoCards%2CLinkKeeper&owner=SamuelBProenca
 
 Retorna uma lista na ordem solicitada. Se qualquer item falhar, a API retorna o erro correspondente para a requisição inteira, sem uma coleção parcial.
 
-owner é opcional nos dois endpoints; quando omitido, o backend usa OWNER. A documentação completa está em /swagger.yaml.
+owner é opcional nos dois endpoints; quando omitido, o backend usa OWNER. O owner aceita até 39 caracteres ASCII alfanuméricos e hífen, sem hífen no início/fim ou hífens consecutivos; cada nome de repositório aceita até 100 letras ASCII, números, ponto, hífen ou sublinhado. A coleção aceita até 10 itens e 2048 caracteres no parâmetro repos; nomes repetidos sem diferenciar maiúsculas/minúsculas são consultados uma vez. A documentação completa está em /swagger.yaml.
 
 ### Campos do cartão
 
@@ -115,6 +120,7 @@ As respostas de erro seguem o formato JSON com um objeto error contendo code e m
 | 401 | GITHUB_UNAUTHORIZED | O GitHub rejeitou a credencial configurada. |
 | 403 | GITHUB_FORBIDDEN | O GitHub negou o acesso por permissão. |
 | 404 | REPOSITORY_NOT_FOUND | Repositório inexistente, privado ou indisponível. |
+| 429 | API_RATE_LIMITED | O cliente excedeu o limite local por IP; aguarde o cabeçalho Retry-After. |
 | 429 | GITHUB_RATE_LIMITED | A cota do GitHub usada pelo servidor acabou; configure TOKEN ou aguarde a renovação. |
 | 502 | UPSTREAM_ERROR | Falha ao consultar o GitHub. |
 | 504 | GITHUB_TIMEOUT | O GitHub não respondeu dentro do tempo configurado. |
@@ -127,8 +133,8 @@ Navegador opcional
   └─ Cliente próprio: chama a API e recebe JSON
                   │
                   ▼
-Express (backend/src/index.ts)
-  ├─ arquivos estáticos em backend/public
+Express (backend/src/index.ts inicia; backend/src/app.ts monta)
+  ├─ arquivos estáticos e documentação em backend/public
   └─ /api/cards → rotas → controller
                          ├─ valida parâmetros e esconde detalhes internos
                          └─ service
@@ -140,7 +146,8 @@ Express (backend/src/index.ts)
 
 ### Peças principais
 
-- backend/src/index.ts: inicia o Express, serve o playground e conecta /api/cards.
+- backend/src/app.ts: cria a aplicação Express, registra middlewares/rotas e decide se serve o playground.
+- backend/src/index.ts: carrega a configuração e inicia o listener HTTP.
 - backend/src/routes/gitCardRoutes.ts: declara as duas rotas GET.
 - backend/src/controllers/gitCardController.ts: valida owner/repo, chama o serviço e uniformiza erros.
 - backend/src/services/gitCardService.ts: autentica as chamadas de saída ao GitHub, aplica cache, coleta README/linguagens/imagem e monta o cartão.
@@ -150,12 +157,22 @@ Express (backend/src/index.ts)
 
 O token só é usado nas chamadas feitas pelo backend ao GitHub. O navegador não recebe essa credencial. O cache é local ao processo: reiniciar o servidor o limpa, e várias instâncias não compartilham o mesmo cache.
 
-## 6. Testes e verificações
+## 6. Build, testes e verificações
+
+Para iniciar a versão de produção, compile o backend e depois execute o JavaScript gerado:
+
+~~~sh
+npm run build
+npm start
+~~~
+
+O build grava o servidor em dist/src e copia os arquivos do site e da documentação para dist/public. npm run test:build compila e inicia um servidor temporário para verificar por HTTP a raiz API-only, a documentação, o CSS, o OpenAPI e a rota de API.
 
 Na pasta backend:
 
 ~~~sh
 npm test
+npm run test:build
 npx tsc --noEmit
 node --check public/app.js
 ~~~
@@ -166,7 +183,7 @@ Os testes cobrem o mapeamento da resposta, repositórios privados, README ausent
 
 - A fonte de dados implementada é GitHub; não há adaptadores para outros serviços ainda.
 - Cada cartão é montado como um contrato fixo. A coleção precisa pertencer a um único owner.
-- A árvore recursiva do GitHub pode vir marcada como truncada em repositórios muito grandes. Imagens citadas diretamente no README ainda podem ser encontradas, mas nem todo arquivo será necessariamente considerado.
+- A busca da capa examina até 250.000 caracteres do README, no máximo 100 candidatas e até 5.000 entradas da árvore do GitHub. Árvores truncadas geram diagnóstico no log; arquivos além desses limites podem não ser considerados. O README completo continua no JSON do cartão.
 - O leitor formata uma parte comum do Markdown; tabelas complexas, conteúdo HTML, imagens internas do README e extensões específicas do GitHub ainda não são renderizados como o GitHub.
 - O cache é volátil e por processo; não há persistência, ETag ou cache compartilhado.
 - A seleção automática não conhece a intenção visual do autor em todos os casos. Quando não encontra imagem confiável, escolhe uma candidata do repositório ou usa placeholder.

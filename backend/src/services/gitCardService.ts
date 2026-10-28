@@ -28,6 +28,9 @@ type ImageCandidate = { url: string; label: string; readmeLinked: boolean };
 
 const CARD_CACHE_TTL_MS = 5 * 60 * 1000;
 const CARD_CACHE_MAX_ENTRIES = 500;
+const MAX_IMAGE_CANDIDATES = 100;
+const MAX_README_IMAGE_SCAN_CHARS = 250_000;
+const MAX_TREE_ENTRIES_SCANNED = 5_000;
 const IMAGE_FILE_PATTERN = /\.(?:avif|bmp|gif|jpe?g|png|svg|tiff?|webp)(?:$|[?#])/i;
 
 const createGithubClient = (): AxiosInstance => {
@@ -196,7 +199,7 @@ const resolveImageReference = (
 const readmeImageReferences = (readmeContent: string): Array<{ reference: string; label: string }> => {
     const references: Array<{ reference: string; label: string }> = [];
     const add = (reference: string, label: string): void => {
-        if (reference.trim()) {
+        if (reference.trim() && references.length < MAX_IMAGE_CANDIDATES) {
             references.push({ reference: reference.trim(), label: label.trim() });
         }
     };
@@ -206,6 +209,9 @@ const readmeImageReferences = (readmeContent: string): Array<{ reference: string
     let definition: RegExpExecArray | null;
     while ((definition = definitionPattern.exec(readmeContent)) !== null) {
         definitions.set(definition[1].toLowerCase(), definition[2] || definition[3]);
+        if (definitions.size >= MAX_IMAGE_CANDIDATES) {
+            break;
+        }
     }
 
     const markdownPattern = /!\[([^\]]*)\]\(\s*(?:<([^>]+)>|([^\s)]+))/g;
@@ -306,7 +312,9 @@ export const createGitCardService = (client: GithubClient = createGithubClient()
         readmeContent: string,
         branch: string
     ): Promise<string> => {
-        const candidates: ImageCandidate[] = readmeImageReferences(readmeContent)
+        const candidates: ImageCandidate[] = readmeImageReferences(
+            readmeContent.slice(0, MAX_README_IMAGE_SCAN_CHARS)
+        )
             .map(({ reference, label }) => ({
                 url: resolveImageReference(reference, owner, repo, branch) || '',
                 label,
@@ -320,7 +328,23 @@ export const createGitCardService = (client: GithubClient = createGithubClient()
                     '/git/trees/' + encodePathSegment(branch),
                 { params: { recursive: '1' } }
             );
-            for (const entry of response.data.tree || []) {
+            if (response.data.truncated) {
+                console.warn('OctoCards repository image tree was truncated', {
+                    code: 'GITHUB_TREE_TRUNCATED'
+                });
+            }
+            const treeIterator = (response.data.tree || [])[Symbol.iterator]();
+            let entriesScanned = 0;
+            while (
+                candidates.length < MAX_IMAGE_CANDIDATES &&
+                entriesScanned < MAX_TREE_ENTRIES_SCANNED
+            ) {
+                const nextEntry = treeIterator.next();
+                if (nextEntry.done) {
+                    break;
+                }
+                entriesScanned += 1;
+                const entry = nextEntry.value;
                 if (entry.type === 'blob' && entry.path && IMAGE_FILE_PATTERN.test(entry.path)) {
                     const url = resolveImageReference(entry.path, owner, repo, branch);
                     if (url) {
@@ -333,17 +357,24 @@ export const createGitCardService = (client: GithubClient = createGithubClient()
             if (isGithubRateLimited(error)) {
                 throw normalizeGithubError(error);
             }
+
+            // Keep optional image failures diagnosable without logging response bodies,
+            // request headers, URLs, or other potentially sensitive transport details.
+            console.warn('OctoCards image lookup failed', axios.isAxiosError(error)
+                ? { status: error.response?.status, code: error.code || 'UNKNOWN' }
+                : { code: 'NON_AXIOS_ERROR' });
         }
 
-        const selected = candidates
-            .map((candidate, index) => ({ candidate, index, score: imageCandidateScore(candidate) }))
-            .filter((entry) => entry.score >= 0)
-            .sort((left, right) => {
-                if (left.score !== right.score) {
-                    return right.score - left.score;
-                }
-                return left.index - right.index;
-            })[0];
+        const selected = candidates.reduce<{
+            candidate: ImageCandidate;
+            score: number;
+        } | undefined>((best, candidate) => {
+            const score = imageCandidateScore(candidate);
+            if (score < 0 || (best && score <= best.score)) {
+                return best;
+            }
+            return { candidate, score };
+        }, undefined);
 
         if (selected) {
             return selected.candidate.url;
@@ -359,8 +390,10 @@ export const createGitCardService = (client: GithubClient = createGithubClient()
         if (repoInfo.private !== false) {
             throw new OctoCardError('REPOSITORY_NOT_FOUND', 404, 'Repository not found.');
         }
-        const readmeContent = await fetchRepoReadme(owner, repo);
-        const principalLanguages = await fetchRepoLanguages(owner, repo);
+        const [readmeContent, principalLanguages] = await Promise.all([
+            fetchRepoReadme(owner, repo),
+            fetchRepoLanguages(owner, repo)
+        ]);
         const illustrationImage = await fetchRepoIllustrationImage(
             owner,
             repo,

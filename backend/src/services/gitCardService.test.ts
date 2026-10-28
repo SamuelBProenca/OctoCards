@@ -57,6 +57,33 @@ describe('gitCardService', () => {
         );
     });
 
+    it('starts README and language requests together after confirming the repository is public', async () => {
+        const { get, client } = createClient();
+        let resolveReadme!: (value: { data: string }) => void;
+        let resolveLanguages!: (value: { data: Record<string, number> }) => void;
+        const readmeResponse = new Promise<{ data: string }>((resolve) => { resolveReadme = resolve; });
+        const languagesResponse = new Promise<{ data: Record<string, number> }>((resolve) => { resolveLanguages = resolve; });
+
+        get
+            .mockResolvedValueOnce({ data: { private: false, name: 'project', default_branch: 'main' } })
+            .mockImplementationOnce(() => readmeResponse)
+            .mockImplementationOnce(() => languagesResponse)
+            .mockResolvedValueOnce({ data: { tree: [] } });
+
+        const cardPromise = createGitCardService(client).fetchRepositoryData('example', 'project');
+        await new Promise<void>((resolve) => setImmediate(resolve));
+
+        expect(get).toHaveBeenCalledTimes(3);
+        expect(get.mock.calls[1][0]).toContain('/readme');
+        expect(get.mock.calls[2][0]).toContain('/languages');
+
+        resolveReadme({ data: '# Project' });
+        resolveLanguages({ data: { TypeScript: 10 } });
+        const card = await cardPromise;
+        expect(card.description).toBe('# Project');
+        expect(card.principal_languages).toEqual(['TypeScript']);
+    });
+
     it('prefers repository banners and resolves nested README image paths', async () => {
         const { get, client } = createClient();
         get
@@ -136,6 +163,77 @@ describe('gitCardService', () => {
         await expect(
             createGitCardService(client).fetchRepositoryData('example', 'project')
         ).rejects.toMatchObject({ code: 'UPSTREAM_ERROR', statusCode: 502 });
+    });
+
+    it('keeps image lookup optional but records sanitized diagnostics for upstream failures', async () => {
+        const { get, client } = createClient();
+        const warning = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        get
+            .mockResolvedValueOnce({ data: { private: false, name: 'project', default_branch: 'main' } })
+            .mockResolvedValueOnce({ data: '' })
+            .mockResolvedValueOnce({ data: {} })
+            .mockRejectedValueOnce(githubError(500, { authorization: 'never-log-this' }, 'ERR_BAD_RESPONSE'));
+
+        const card = await createGitCardService(client).fetchRepositoryData('example', 'project');
+
+        expect(card.illustration_image_url).toBe('https://placehold.co/600x400');
+        expect(warning).toHaveBeenCalledWith('OctoCards image lookup failed', {
+            status: 500,
+            code: 'ERR_BAD_RESPONSE'
+        });
+        expect(JSON.stringify(warning.mock.calls)).not.toContain('never-log-this');
+    });
+
+    it('stops image candidate processing at the limit and reports truncated GitHub trees', async () => {
+        const { get, client } = createClient();
+        const warning = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        let entriesVisited = 0;
+        const treeEntries = {
+            *[Symbol.iterator]() {
+                for (let index = 0; index < 1000; index += 1) {
+                    entriesVisited += 1;
+                    yield { path: `images/image-${index}.png`, type: 'blob' };
+                }
+            }
+        };
+        get
+            .mockResolvedValueOnce({ data: { private: false, name: 'project', default_branch: 'main' } })
+            .mockResolvedValueOnce({ data: '' })
+            .mockResolvedValueOnce({ data: {} })
+            .mockResolvedValueOnce({ data: { truncated: true, tree: treeEntries } });
+
+        const card = await createGitCardService(client).fetchRepositoryData('example', 'project');
+
+        expect(entriesVisited).toBe(100);
+        expect(card.illustration_image_url).toBe(
+            'https://raw.githubusercontent.com/example/project/main/images/image-0.png'
+        );
+        expect(warning).toHaveBeenCalledWith('OctoCards repository image tree was truncated', {
+            code: 'GITHUB_TREE_TRUNCATED'
+        });
+    });
+
+    it('caps tree traversal when a repository has many non-image files', async () => {
+        const { get, client } = createClient();
+        let entriesVisited = 0;
+        const treeEntries = {
+            *[Symbol.iterator]() {
+                for (let index = 0; index < 6000; index += 1) {
+                    entriesVisited += 1;
+                    yield { path: `docs/file-${index}.md`, type: 'blob' };
+                }
+            }
+        };
+        get
+            .mockResolvedValueOnce({ data: { private: false, name: 'project', default_branch: 'main' } })
+            .mockResolvedValueOnce({ data: '' })
+            .mockResolvedValueOnce({ data: {} })
+            .mockResolvedValueOnce({ data: { truncated: false, tree: treeEntries } });
+
+        const card = await createGitCardService(client).fetchRepositoryData('example', 'project');
+
+        expect(entriesVisited).toBe(5000);
+        expect(card.illustration_image_url).toBe('https://placehold.co/600x400');
     });
 
     it('translates repository not found and rate limit responses', async () => {
