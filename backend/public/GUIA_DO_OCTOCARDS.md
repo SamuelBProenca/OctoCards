@@ -33,14 +33,18 @@ PLAYGROUND_ENABLED=false
 API_RATE_LIMIT_MAX=12
 API_RATE_LIMIT_WINDOW_MS=60000
 GITHUB_API_REQUEST_BUDGET_PER_HOUR=50
+GITHUB_AUTH_MODE=request
+GITHUB_REQUEST_BUDGET_STORE=memory
+GITHUB_REQUEST_BUDGET_KEY=octocards:github-api-budget
+REDIS_URL=
 TRUSTED_PROXIES=
 ~~~
 
-OWNER define a conta usada quando a URL não informa owner. PORT escolhe a porta do servidor. TOKEN é opcional, mas autenticar as consultas evita que o playground dependa apenas da cota pública não autenticada. Use uma credencial de servidor com acesso de leitura necessário aos repositórios públicos. O valor deve ficar no backend e nunca no JavaScript do navegador. O arquivo .env está ignorado pelo Git; não o adicione ao commit.
+OWNER define a conta usada quando a URL nao informa owner. PORT escolhe a porta. TOKEN e usado somente em modo server, para auto-hospedagem; mantenha-o apenas no ambiente local/servidor. GITHUB_AUTH_MODE=request e o padrao: a API aceita Authorization: Bearer <token> opcional por requisicao e nunca usa TOKEN como fallback. Sem esse cabecalho, a chamada e anonima. O modo anonymous rejeita credenciais enviadas; o modo server usa o TOKEN do operador em todas as consultas. A API permanece limitada a repositorios publicos.
 
 GITHUB_TIMEOUT_MS é o tempo máximo de cada chamada ao GitHub em milissegundos. O padrão é 10000. O servidor rejeita valores que não sejam inteiros positivos.
 
-API_RATE_LIMIT_MAX e API_RATE_LIMIT_WINDOW_MS definem o limite HTTP por endereco IP; os padroes permitem 12 chamadas a cada 60000 ms. GITHUB_API_REQUEST_BUDGET_PER_HOUR limita cada chamada de saida ao GitHub; o padrao permite 50 chamadas em uma janela movel de uma hora por processo. Cada tentativa conta, inclusive falhas e novas tentativas. Ao esgotar, a API responde 429 com Retry-After. O orcamento fica em memoria, reinicia junto com o processo e nao coordena replicas; para multiplas instancias, uma store compartilhada ainda e necessaria. O TOKEN pode ter cota propria compartilhada com outras aplicacoes; ajuste o limite apenas considerando o uso real dessa credencial. TRUSTED_PROXIES deve conter os IPs/CIDRs exatos do proxy para obter o IP real do cliente.
+API_RATE_LIMIT_MAX e API_RATE_LIMIT_WINDOW_MS limitam requisicoes recebidas por IP. GITHUB_API_REQUEST_BUDGET_PER_HOUR define o teto total de chamadas externas a partir desta instalacao (padrao 50/hora); todos os consumidores compartilham esse teto. Cada tentativa conta. Quando esgota, a API responde 429 com Retry-After. GITHUB_REQUEST_BUDGET_STORE=memory serve para desenvolvimento local e nao coordena processos. Em NODE_ENV=production o padrao e redis e REDIS_URL e obrigatoria; configure a mesma URL e GITHUB_REQUEST_BUDGET_KEY em todas as replicas. A store mantem apenas horarios/identificadores aleatorios, nunca o token GitHub. Se Redis ficar indisponivel, a API falha fechada com 503. O envio de token por requisicao significa que o servidor o recebe temporariamente em memoria: use HTTPS e somente um servidor em que confia; o OctoCards nao o retorna, registra ou persiste.
 
 Inicie o serviço:
 

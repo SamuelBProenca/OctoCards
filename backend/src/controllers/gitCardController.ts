@@ -46,6 +46,23 @@ const resolveOwner = (queryOwner: unknown): string => {
     return configuredOwner;
 };
 
+const resolveGithubRequestToken = (req: Request): string | undefined => {
+    const authorization = req.get('authorization');
+    if (authorization === undefined) {
+        return undefined;
+    }
+
+    if (config.githubAuthMode !== 'request') {
+        throw invalidRequest('Per-request GitHub credentials are disabled for this server.');
+    }
+
+    const match = /^Bearer\s+(\S+)$/i.exec(authorization.trim());
+    if (!match) {
+        throw invalidRequest('Use the Bearer scheme for a per-request GitHub credential.');
+    }
+    return match[1];
+};
+
 const sendError = (res: Response, error: unknown, route: string): void => {
     if (error instanceof OctoCardError) {
         console.error('OctoCards request failed', { route, code: error.code });
@@ -72,7 +89,8 @@ export const getGitCard = async (req: Request, res: Response): Promise<void> => 
         }
 
         const owner = resolveOwner(req.query.owner);
-        const gitCardData = await gitCardService.fetchRepositoryData(owner, repo);
+        const requestToken = resolveGithubRequestToken(req);
+        const gitCardData = await gitCardService.fetchRepositoryData(owner, repo, requestToken);
         res.status(200).json(gitCardData);
     } catch (error) {
         sendError(res, error, 'GET /api/cards/:repo');
@@ -110,7 +128,8 @@ export const getGitCards = async (req: Request, res: Response): Promise<void> =>
         }
 
         const owner = resolveOwner(req.query.owner);
-        const cards = await OctoCardRepos(uniqueRepos, owner);
+        const requestToken = resolveGithubRequestToken(req);
+        const cards = await OctoCardRepos(uniqueRepos, owner, requestToken);
         res.status(200).json(cards);
     } catch (error) {
         sendError(res, error, 'GET /api/cards');

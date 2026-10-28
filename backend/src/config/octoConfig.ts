@@ -3,7 +3,12 @@ import { isIP } from 'node:net';
 
 const owner = process.env.OWNER || "octocat";
 const port = process.env.PORT || "3000";  
-const token = process.env.TOKEN || "";
+const configuredGithubAuthMode = (process.env.GITHUB_AUTH_MODE || 'request').trim().toLowerCase();
+const token = configuredGithubAuthMode === 'server' ? process.env.TOKEN || '' : '';
+const defaultGithubRequestBudgetStore = process.env.NODE_ENV === 'production' ? 'redis' : 'memory';
+const configuredGithubRequestBudgetStore = (process.env.GITHUB_REQUEST_BUDGET_STORE || defaultGithubRequestBudgetStore).trim().toLowerCase();
+const redisUrl = process.env.REDIS_URL?.trim() || '';
+const githubRequestBudgetKey = (process.env.GITHUB_REQUEST_BUDGET_KEY || 'octocards:github-api-budget').trim();
 const configuredTimeout = Number(process.env.GITHUB_TIMEOUT_MS || 10000);
 const configuredPlayground = process.env.PLAYGROUND_ENABLED?.trim().toLowerCase();
 const configuredRateLimitMax = Number(process.env.API_RATE_LIMIT_MAX || 12);
@@ -60,6 +65,22 @@ if (!Number.isInteger(configuredGithubRequestBudget) || configuredGithubRequestB
     throw new Error("GITHUB_API_REQUEST_BUDGET_PER_HOUR must be a positive integer.");
 }
 
+if (!['request', 'server', 'anonymous'].includes(configuredGithubAuthMode)) {
+    throw new Error('GITHUB_AUTH_MODE must be request, server, or anonymous.');
+}
+
+if (!['memory', 'redis'].includes(configuredGithubRequestBudgetStore)) {
+    throw new Error('GITHUB_REQUEST_BUDGET_STORE must be memory or redis.');
+}
+
+if (configuredGithubRequestBudgetStore === 'redis' && !redisUrl) {
+    throw new Error('REDIS_URL is required when GITHUB_REQUEST_BUDGET_STORE=redis.');
+}
+
+if (!githubRequestBudgetKey || githubRequestBudgetKey.length > 200) {
+    throw new Error('GITHUB_REQUEST_BUDGET_KEY must contain 1 to 200 characters.');
+}
+
 if (trustedProxies.some((entry) => !isValidTrustedProxy(entry))) {
     throw new Error('TRUSTED_PROXIES must contain valid IP addresses, CIDRs, or loopback/linklocal/uniquelocal.');
 }
@@ -68,10 +89,14 @@ export default {
     owner,
     port,
     token,
+    githubAuthMode: configuredGithubAuthMode,
     githubTimeoutMs: configuredTimeout,
     playgroundEnabled,
     apiRateLimitMax: configuredRateLimitMax,
     apiRateLimitWindowMs: configuredRateLimitWindow,
     githubApiRequestBudgetPerHour: configuredGithubRequestBudget,
+    githubRequestBudgetStore: configuredGithubRequestBudgetStore,
+    redisUrl,
+    githubRequestBudgetKey,
     trustedProxies
 };

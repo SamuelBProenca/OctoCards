@@ -1,7 +1,7 @@
 import { performance } from 'node:perf_hooks';
 
 export interface GithubRequestBudget {
-    reserve(): number | null;
+    reserve(): Promise<number | null>;
 }
 
 /**
@@ -24,7 +24,7 @@ export const createGithubRequestBudget = (
     let oldestRequestIndex = 0;
 
     return {
-        reserve: () => {
+        reserve: async () => {
             const currentTime = now();
             const windowStart = currentTime - windowMs;
             while (

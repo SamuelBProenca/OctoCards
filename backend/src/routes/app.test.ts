@@ -59,6 +59,8 @@ describe('Express app modes', () => {
             const openapiYaml = await openapi.text();
             expect(openapiYaml).toContain('openapi: 3.0.3');
             expect(openapiYaml).toContain('API_RATE_LIMITED');
+            expect(openapiYaml).toContain('GithubBearer');
+            expect(openapiYaml).toContain('BudgetUnavailable');
             expect(openapiYaml).toContain('pattern: "^(?!.*--)[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$"');
 
             const invalidRequest = await fetch(`${baseUrl}/api/cards`);

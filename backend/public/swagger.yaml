@@ -4,15 +4,20 @@ info:
   version: 0.1.0-alpha
   description: |
     API pública para consultar dados de repositórios públicos do GitHub e produzir cartões JSON.
-    O playground web é opcional. A credencial GitHub é configurada somente no servidor pela variável TOKEN;
-    consumidores desta API não devem enviar nem receber esse token. Coleções falham por inteiro se algum
-    repositório solicitado falhar.
+    No modo request (padrao), cada consumidor pode enviar seu proprio token GitHub em Authorization: Bearer;
+    o servidor nao usa TOKEN como fallback. O modo server usa TOKEN configurado pelo operador e o modo
+    anonymous nao aceita credenciais. Tokens por requisicao sao recebidos temporariamente em memoria,
+    sem registro ou persistencia. Use HTTPS e somente servidores confiaveis. Colecoes falham por inteiro
+    se algum repositorio solicitado falhar.
 servers:
   - url: /
     description: Mesmo host que serve esta especificação
 tags:
   - name: Cards
     description: Dados de um repositório ou de uma coleção
+security:
+  - GithubBearer: []
+  - {}
 paths:
   /api/cards/{repo}:
     get:
@@ -47,6 +52,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/BudgetUnavailable'
         '500':
           $ref: '#/components/responses/InternalError'
         '502':
@@ -89,6 +96,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/BudgetUnavailable'
         '500':
           $ref: '#/components/responses/InternalError'
         '502':
@@ -96,6 +105,11 @@ paths:
         '504':
           $ref: '#/components/responses/Timeout'
 components:
+  securitySchemes:
+    GithubBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: GitHub token (optional; depends on server auth mode)
   parameters:
     Repo:
       name: repo
@@ -192,6 +206,17 @@ components:
           schema:
             type: string
           description: Tempo de espera em segundos, quando fornecido pelo limite local ou pelo GitHub.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    BudgetUnavailable:
+      description: Shared request budget store unavailable; the API fails closed without calling GitHub.
+      headers:
+        Retry-After:
+          schema:
+            type: string
+          description: Seconds to wait before retrying.
       content:
         application/json:
           schema:

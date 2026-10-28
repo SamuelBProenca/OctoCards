@@ -5,8 +5,8 @@ Itens derivados da Auditoria_Tecnica_OctoCards e do OctoCards_Grafo_de_Riscos re
 Issues remotas abertas em 28/10/2026: #8–#14. Este arquivo mantém o backlog local com contexto, decisão técnica e critérios de aceite.
 
 ## [P1] Orçamento compartilhado GitHub — A02
-Orcamento de saida agora limita a 50 chamadas GitHub por janela movel de uma hora, compartilhado no processo; cada tentativa conta e o limite retorna 429/Retry-After. E configuravel via GITHUB_API_REQUEST_BUDGET_PER_HOUR. Estado em memoria nao coordena replicas nem outras aplicacoes que compartilham TOKEN.
-**Aceite:** orçamento documentado; 429/Retry-After; testes burst, clientes, retries/réplicas sem exposição de credencial.
+Implementado store Redis atomico com janela movel, compartilhado por todas as replicas configuradas na mesma URL e chave. Production usa Redis por padrao e exige REDIS_URL; desenvolvimento local pode usar memoria. Reserva retornada como 429/Retry-After; falha da store responde 503. O modo BYOT request nao carrega TOKEN do servidor; a chave Redis e estatica e nao inclui credencial.
+**Aceite:** orcamento e modos de auth documentados; testes simulam replicas compartilhando o mesmo backend atomico. Validar com Redis real no ambiente de deploy antes de fechar issue #8.
 
 ## [P1] Privacidade de imagens externas — A04
 HTTPS de terceiros pode revelar IP/conexão do visitante. O backend não faz fetch, então não é SSRF de servidor.
@@ -52,3 +52,4 @@ O audit completo sinalizou 7 vulnerabilidades baixas através de deepmerge 4.3.1
 - [#12 Contrato TypeScript/OpenAPI](https://github.com/SamuelBProenca/OctoCards/issues/12)
 - [#13 Script manual placeholder](https://github.com/SamuelBProenca/OctoCards/issues/13)
 - [#14 Advisory deepmerge sem correção](https://github.com/SamuelBProenca/OctoCards/issues/14)
+Atualizacao 28/10/2026: implementada store Redis atomica compartilhada com 429/Retry-After e 503 fail-closed. Testes locais aprovados (53/53), typecheck e build/smoke aprovados; simulacao com dois adapters usa backend fake. Manter esta issue aberta ate validar conexao, URL/chave comum e comportamento de reinicio no ambiente de deploy com Redis real.

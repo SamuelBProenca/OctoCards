@@ -136,3 +136,17 @@ O audit completo de desenvolvimento ainda registra 7 alertas baixos pela cadeia 
 ## 12. Progresso A02 / issue #8 - 28/10/2026
 
 O commit local b254383 adicionou um orcamento de saida em memoria por processo, configuravel com GITHUB_API_REQUEST_BUDGET_PER_HOUR, com 429/Retry-After e testes. Ele foi mantido localmente e nao integra o PR #15 merged. A escolha do usuario foi implementar uma store compartilhada; esta etapa por processo sera substituida pela reserva atomica compartilhada.
+## 13. Store compartilhada e credencial por requisicao - 28/10/2026
+
+O orcamento de saida pode usar Redis com script atomico de janela movel; as replicas compartilham a mesma chave de instalacao, que guarda timestamps e identificadores aleatorios, sem credenciais. Em NODE_ENV=production o modo de store padrao e redis e exige REDIS_URL; em desenvolvimento/testes, memory permanece disponivel. Redis indisponivel resulta em 503 e falha fechada. Orçamento esgotado resulta em 429/Retry-After.
+
+GITHUB_AUTH_MODE tem os modos request (padrao, Bearer opcional por requisicao, sem fallback para TOKEN), server (TOKEN local do operador, para auto-hospedagem) e anonymous. Credenciais por requisicao nao entram no cache compartilhado; os repositorios privados continuam rejeitados. O smoke test define TOKEN vazio, auth anonymous e store memory. Testes usam credenciais ficticias/clientes mockados, sem GitHub real.
+
+A suite, typecheck e build/smoke foram validados localmente; Redis real nao estava disponivel neste ambiente (sem redis-server/Docker), entao a semantica entre replicas foi simulada por adapters sobre um backend fake. A issue #8 deve permanecer aberta ate o smoke com Redis real no deploy e a configuracao operacional compartilhada.
+## 14. Redis compartilhado, autenticacao BYOT e validacao - 28/10/2026
+
+O backend agora pode reservar chamadas externas ao GitHub em Redis por uma janela movel atomica. Em producao, Redis e o padrao e REDIS_URL e obrigatoria; em desenvolvimento e testes, a store memory continua disponivel. A chave Redis contem somente timestamps e IDs aleatorios. Falta validar com Redis real no ambiente de deploy, por isso a issue #8 segue aberta.
+
+GITHUB_AUTH_MODE=request e o padrao: aceita Authorization: Bearer opcional por requisicao e nao usa TOKEN do processo como fallback. server e opt-in para operacao propria; anonymous rejeita Authorization. Credenciais do consumidor nao entram em logs, cache, chave Redis ou resposta, mas passam temporariamente pela memoria do servidor; consumidores devem usar HTTPS e confiar no host. A OpenAPI e o guia documentam os modos e o 503 fail-closed.
+
+Validacao final: Jest 7 suites / 53 testes aprovados; TypeScript noEmit aprovado; build + smoke aprovado; npm audit --omit=dev com zero vulnerabilidades. O audit completo reporta 7 avisos baixos transitivos de Jest/deepmerge 4.3.1; conforme decisao do usuario, aguardar correcao upstream sem downgrade forcado. Varredura da arvore rastreada: 32 arquivos, zero padroes conhecidos de tokens/chaves e zero arquivos .env rastreados. backend/.env esta ignorado; seus valores nao foram exibidos nem modificados. Nao foi feita consulta real ao GitHub durante testes.

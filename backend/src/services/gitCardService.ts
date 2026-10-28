@@ -1,8 +1,10 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios';
+import { createClient } from 'redis';
 import config from '../config/octoConfig';
 import { OctoCardError } from '../types/octoCardError';
 import { PropsGitCard } from '../types/gitCardType';
 import { createGithubRequestBudget, type GithubRequestBudget } from '../utils/githubRequestBudget';
+import { createRedisGithubRequestBudget, type RedisEval } from '../utils/redisGithubRequestBudget';
 
 interface GithubRepository {
     private?: boolean;
@@ -28,10 +30,44 @@ type CachedCard = { expiresAt: number; value: Promise<PropsGitCard> };
 type ImageCandidate = { url: string; label: string; readmeLinked: boolean };
 
 const GITHUB_API_REQUEST_WINDOW_MS = 60 * 60 * 1000;
-const processGithubRequestBudget = createGithubRequestBudget(
-    config.githubApiRequestBudgetPerHour,
-    GITHUB_API_REQUEST_WINDOW_MS
-);
+const redisClient = config.githubRequestBudgetStore === 'redis'
+    ? createClient({
+        url: config.redisUrl,
+        socket: {
+            connectTimeout: 3000,
+            reconnectStrategy: (retries) => retries >= 3 ? new Error('Redis reconnect limit reached') : retries * 100
+        }
+    })
+    : undefined;
+let redisConnection: Promise<void> | undefined;
+redisClient?.on('error', () => undefined);
+
+const evalRedis: RedisEval = async (script, options) => {
+    if (!redisClient) {
+        throw new Error('Redis budget store is not configured.');
+    }
+    if (!redisClient.isReady) {
+        if (!redisClient.isOpen) {
+            redisConnection ??= redisClient.connect()
+                .then(() => undefined)
+                .catch((error: unknown) => {
+                    redisConnection = undefined;
+                    throw error;
+                });
+            await redisConnection;
+        }
+    }
+    return redisClient.eval(script, options);
+};
+
+const processGithubRequestBudget = config.githubRequestBudgetStore === 'redis'
+    ? createRedisGithubRequestBudget(
+        evalRedis,
+        config.githubRequestBudgetKey,
+        config.githubApiRequestBudgetPerHour,
+        GITHUB_API_REQUEST_WINDOW_MS
+    )
+    : createGithubRequestBudget(config.githubApiRequestBudgetPerHour, GITHUB_API_REQUEST_WINDOW_MS);
 
 const CARD_CACHE_TTL_MS = 5 * 60 * 1000;
 const CARD_CACHE_MAX_ENTRIES = 500;
@@ -40,14 +76,14 @@ const MAX_README_IMAGE_SCAN_CHARS = 250_000;
 const MAX_TREE_ENTRIES_SCANNED = 5_000;
 const IMAGE_FILE_PATTERN = /\.(?:avif|bmp|gif|jpe?g|png|svg|tiff?|webp)(?:$|[?#])/i;
 
-const createGithubClient = (): AxiosInstance => {
+export const createGithubClient = (token?: string): AxiosInstance => {
     const headers: Record<string, string> = {
         Accept: 'application/vnd.github+json',
         'X-GitHub-Api-Version': '2026-03-10'
     };
 
-    if (config.token) {
-        headers.Authorization = 'Bearer ' + config.token;
+    if (token) {
+        headers.Authorization = 'Bearer ' + token;
     }
 
     return axios.create({
@@ -293,13 +329,27 @@ const imageCandidateScore = (candidate: ImageCandidate): number => {
 };
 
 export const createGitCardService = (
-    client: GithubClient = createGithubClient(),
+    client: GithubClient | undefined = undefined,
     requestBudget: GithubRequestBudget = processGithubRequestBudget
 ) => {
     const cardCache = new Map<string, CachedCard>();
 
-    const getFromGithub = <T>(url: string, options?: AxiosRequestConfig) => {
-        const retryAfterSeconds = requestBudget.reserve();
+    const getFromGithub = async <T>(
+        githubClient: GithubClient,
+        url: string,
+        options?: AxiosRequestConfig
+    ) => {
+        let retryAfterSeconds: number | null;
+        try {
+            retryAfterSeconds = await requestBudget.reserve();
+        } catch {
+            throw new OctoCardError(
+                'BUDGET_STORE_UNAVAILABLE',
+                503,
+                'GitHub request budget store is unavailable.',
+                5
+            );
+        }
         if (retryAfterSeconds !== null) {
             throw new OctoCardError(
                 'GITHUB_RATE_LIMITED',
@@ -308,12 +358,17 @@ export const createGitCardService = (
                 retryAfterSeconds
             );
         }
-        return client.get<T>(url, options);
+        return githubClient.get<T>(url, options);
     };
 
-    const fetchRepoInfo = async (owner: string, repo: string): Promise<GithubRepository> => {
+    const fetchRepoInfo = async (
+        owner: string,
+        repo: string,
+        githubClient: GithubClient
+    ): Promise<GithubRepository> => {
         try {
             const response = await getFromGithub<GithubRepository>(
+                githubClient,
                 '/repos/' + encodePathSegment(owner) + '/' + encodePathSegment(repo)
             );
             return response.data;
@@ -322,9 +377,14 @@ export const createGitCardService = (
         }
     };
 
-    const fetchRepoReadme = async (owner: string, repo: string): Promise<string> => {
+    const fetchRepoReadme = async (
+        owner: string,
+        repo: string,
+        githubClient: GithubClient
+    ): Promise<string> => {
         try {
             const response = await getFromGithub<string>(
+                githubClient,
                 '/repos/' + encodePathSegment(owner) + '/' + encodePathSegment(repo) + '/readme',
                 { headers: { Accept: 'application/vnd.github.raw+json' } }
             );
@@ -338,9 +398,14 @@ export const createGitCardService = (
         }
     };
 
-    const fetchRepoLanguages = async (owner: string, repo: string): Promise<string[]> => {
+    const fetchRepoLanguages = async (
+        owner: string,
+        repo: string,
+        githubClient: GithubClient
+    ): Promise<string[]> => {
         try {
             const response = await getFromGithub<Record<string, number>>(
+                githubClient,
                 '/repos/' + encodePathSegment(owner) + '/' + encodePathSegment(repo) + '/languages'
             );
             return Object.keys(response.data || {});
@@ -353,7 +418,8 @@ export const createGitCardService = (
         owner: string,
         repo: string,
         readmeContent: string,
-        branch: string
+        branch: string,
+        githubClient: GithubClient
     ): Promise<string> => {
         const candidates: ImageCandidate[] = readmeImageReferences(
             readmeContent.slice(0, MAX_README_IMAGE_SCAN_CHARS)
@@ -367,6 +433,7 @@ export const createGitCardService = (
 
         try {
             const response = await getFromGithub<GithubTree>(
+                githubClient,
                 '/repos/' + encodePathSegment(owner) + '/' + encodePathSegment(repo) +
                     '/git/trees/' + encodePathSegment(branch),
                 { params: { recursive: '1' } }
@@ -397,7 +464,9 @@ export const createGitCardService = (
             }
         } catch (error) {
             // Image lookup is optional; keep rate-limit failures visible to the caller.
-            if (error instanceof OctoCardError && error.code === 'GITHUB_RATE_LIMITED') {
+            if (error instanceof OctoCardError && (
+                error.code === 'GITHUB_RATE_LIMITED' || error.code === 'BUDGET_STORE_UNAVAILABLE'
+            )) {
                 throw error;
             }
             if (isGithubRateLimited(error)) {
@@ -429,22 +498,27 @@ export const createGitCardService = (
         return 'https://placehold.co/600x400';
     };
 
-    const loadRepositoryData = async (owner: string, repo: string): Promise<PropsGitCard> => {
-        const repoInfo = await fetchRepoInfo(owner, repo);
+    const loadRepositoryData = async (
+        owner: string,
+        repo: string,
+        githubClient: GithubClient
+    ): Promise<PropsGitCard> => {
+        const repoInfo = await fetchRepoInfo(owner, repo, githubClient);
         // The server token may have access to private repositories. Keep this API public-only.
         // Fail closed when GitHub does not explicitly mark the repository as public.
         if (repoInfo.private !== false) {
             throw new OctoCardError('REPOSITORY_NOT_FOUND', 404, 'Repository not found.');
         }
         const [readmeContent, principalLanguages] = await Promise.all([
-            fetchRepoReadme(owner, repo),
-            fetchRepoLanguages(owner, repo)
+            fetchRepoReadme(owner, repo, githubClient),
+            fetchRepoLanguages(owner, repo, githubClient)
         ]);
         const illustrationImage = await fetchRepoIllustrationImage(
             owner,
             repo,
             readmeContent,
-            repoInfo.default_branch || 'HEAD'
+            repoInfo.default_branch || 'HEAD',
+            githubClient
         );
 
         return {
@@ -461,7 +535,23 @@ export const createGitCardService = (
         };
     };
 
-    const fetchRepositoryData = async (owner: string, repo: string): Promise<PropsGitCard> => {
+    const fetchRepositoryData = async (
+        owner: string,
+        repo: string,
+        requestToken?: string
+    ): Promise<PropsGitCard> => {
+        const token = config.githubAuthMode === 'server'
+            ? config.token
+            : config.githubAuthMode === 'request'
+                ? requestToken
+                : undefined;
+        const githubClient = client || createGithubClient(token);
+
+        // BYOT requests never share cached/in-flight results across caller credentials.
+        if (config.githubAuthMode === 'request' && requestToken) {
+            return loadRepositoryData(owner, repo, githubClient);
+        }
+
         const cacheKey = JSON.stringify([owner.toLowerCase(), repo.toLowerCase()]);
         const cached = cardCache.get(cacheKey);
         if (cached && cached.expiresAt > Date.now()) {
@@ -475,7 +565,7 @@ export const createGitCardService = (
         }
 
         // Cache the in-flight request too, so concurrent requests share one GitHub API fetch.
-        const value = loadRepositoryData(owner, repo);
+        const value = loadRepositoryData(owner, repo, githubClient);
         cardCache.set(cacheKey, { expiresAt: Date.now() + CARD_CACHE_TTL_MS, value });
         if (cardCache.size > CARD_CACHE_MAX_ENTRIES) {
             const oldestKey = cardCache.keys().next().value;

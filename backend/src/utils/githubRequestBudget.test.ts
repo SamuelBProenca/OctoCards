@@ -1,23 +1,23 @@
 import { createGithubRequestBudget } from './githubRequestBudget';
 
 describe('GitHub request budget', () => {
-    it('allows the configured count and returns Retry-After when exhausted', () => {
+    it('allows the configured count and returns Retry-After when exhausted', async () => {
         const budget = createGithubRequestBudget(2, 60_000, () => 10_000);
 
-        expect(budget.reserve()).toBeNull();
-        expect(budget.reserve()).toBeNull();
-        expect(budget.reserve()).toBe(60);
+        await expect(budget.reserve()).resolves.toBeNull();
+        await expect(budget.reserve()).resolves.toBeNull();
+        await expect(budget.reserve()).resolves.toBe(60);
     });
 
-    it('releases capacity when the oldest request leaves the rolling window', () => {
+    it('releases capacity when the oldest request leaves the rolling window', async () => {
         let now = 0;
         const budget = createGithubRequestBudget(1, 10_000, () => now);
 
-        expect(budget.reserve()).toBeNull();
+        await expect(budget.reserve()).resolves.toBeNull();
         now = 9_999;
-        expect(budget.reserve()).toBe(1);
+        await expect(budget.reserve()).resolves.toBe(1);
         now = 10_000;
-        expect(budget.reserve()).toBeNull();
+        await expect(budget.reserve()).resolves.toBeNull();
     });
 
     it('rejects invalid budget settings', () => {

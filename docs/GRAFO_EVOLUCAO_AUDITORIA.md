@@ -106,3 +106,32 @@ flowchart TD
 ```
 
 O commit local b254383 adicionou o orcamento por processo como etapa de validacao. Esta etapa nao foi enviada ao PR #15. A issue #8 permanece aberta; a implementacao compartilhada substituira esse estado local e coordenara as replicas.
+## Implementacao de store compartilhada e BYOT - 28/10/2026
+
+```mermaid
+flowchart TD
+    U["Usuario: Authorization Bearer opcional"] --> API["API: auth request/server/anonymous"]
+    API --> SVC["Servico cria cliente GitHub por requisicao"]
+    SVC --> STORE["Redis: janela movel atomica compartilhada"]
+    STORE -->|reserva| GH["GitHub API"]
+    STORE -->|orcamento esgotado| R429["429 + Retry-After"]
+    STORE -->|indisponivel| R503["503 fail-closed"]
+    GH -->|publico| CARD["Card sem persistir token"]
+    API --> TEST["Jest focado, simulacao Redis, typecheck e smoke"]
+```
+
+Credencial caller nunca e guardada na chave de cache/orcamento, enviada ao Redis, logada ou retornada. Em mode request, TOKEN do servidor e removido da configuracao efetiva; mode server e opt-in para auto-hospedagem. A verificacao de Redis real permanece pendente porque o ambiente nao tem redis-server nem Docker.
+## Implementacao Redis compartilhada e autenticacao por requisicao - validacao final 28/10/2026
+
+```mermaid
+flowchart TD
+    RQ["Reserva Redis atomica: janela movel"] --> A["Jest: 7 suites, 53/53 aprovados"]
+    RQ --> T["TypeScript noEmit: aprovado"]
+    RQ --> B["Build e smoke: aprovado"]
+    RQ --> AUD["Audit producao: 0 vulnerabilidades"]
+    RQ --> DEV["Audit total: 7 baixos em Jest/deepmerge"]
+    RQ --> SEC["32 arquivos rastreados; 0 padroes conhecidos; 0 .env rastreados"]
+    RQ --> OPEN["#8 aberta: falta smoke com Redis real no deploy"]
+```
+
+A semantica entre adapters foi simulada com backend fake; nao havia redis-server nem Docker para integracao local real. A OpenAPI passou a documentar Bearer opcional e respostas 503/Retry-After. `backend/.env` permanece ignorado e nao foi lido nem alterado. A pasta preexistente `backend/tests/` continua fora do commit.

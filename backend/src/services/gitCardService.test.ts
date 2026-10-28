@@ -1,4 +1,5 @@
-import { createGitCardService } from './gitCardService';
+import axios from 'axios';
+import { createGithubClient, createGitCardService } from './gitCardService';
 import { createGithubRequestBudget } from '../utils/githubRequestBudget';
 
 const createClient = () => {
@@ -16,6 +17,8 @@ const githubError = (
     code,
     response: status === undefined ? undefined : { status, headers }
 });
+
+afterEach(() => jest.restoreAllMocks());
 
 describe('gitCardService', () => {
     it('maps GitHub data to the existing PropsGitCard contract', async () => {
@@ -289,5 +292,65 @@ describe('gitCardService', () => {
             });
         expect(first.get).toHaveBeenCalledTimes(1);
         expect(second.get).not.toHaveBeenCalled();
+    });
+
+    it('does not reuse cached cards across caller-provided credentials', async () => {
+        const { get, client } = createClient();
+        const repository = { data: { private: false, name: 'project', default_branch: 'main' } };
+        get
+            .mockResolvedValueOnce(repository)
+            .mockResolvedValueOnce({ data: '# Project' })
+            .mockResolvedValueOnce({ data: { TypeScript: 10 } })
+            .mockResolvedValueOnce({ data: { tree: [] } })
+            .mockResolvedValueOnce(repository)
+            .mockResolvedValueOnce({ data: '# Project' })
+            .mockResolvedValueOnce({ data: { TypeScript: 10 } })
+            .mockResolvedValueOnce({ data: { tree: [] } });
+        const service = createGitCardService(
+            client,
+            createGithubRequestBudget(20, 60_000, () => 10_000)
+        );
+
+        await service.fetchRepositoryData('example', 'project', 'mock-caller-token-a');
+        await service.fetchRepositoryData('example', 'project', 'mock-caller-token-b');
+
+        expect(get).toHaveBeenCalledTimes(8);
+    });
+
+    it('does not add a server credential when creating an anonymous request client', () => {
+        const create = jest.spyOn(axios, 'create');
+
+        createGithubClient();
+
+        expect(create).toHaveBeenCalledWith(expect.objectContaining({
+            headers: expect.not.objectContaining({ Authorization: expect.any(String) })
+        }));
+
+        createGithubClient('mock-caller-token');
+        expect(create).toHaveBeenLastCalledWith(expect.objectContaining({
+            headers: expect.objectContaining({ Authorization: 'Bearer mock-caller-token' })
+        }));
+    });
+
+    it('fails closed when the shared budget store is unavailable during optional image lookup', async () => {
+        const { get, client } = createClient();
+        get
+            .mockResolvedValueOnce({ data: { private: false, name: 'project' } })
+            .mockResolvedValueOnce({ data: '# Project' })
+            .mockResolvedValueOnce({ data: { TypeScript: 10 } });
+        let reservations = 0;
+        const requestBudget = {
+            reserve: jest.fn(async () => {
+                reservations += 1;
+                if (reservations === 4) {
+                    throw new Error('Redis unavailable');
+                }
+                return null;
+            })
+        };
+
+        await expect(createGitCardService(client, requestBudget)
+            .fetchRepositoryData('example', 'project'))
+            .rejects.toMatchObject({ code: 'BUDGET_STORE_UNAVAILABLE', statusCode: 503 });
     });
 });
