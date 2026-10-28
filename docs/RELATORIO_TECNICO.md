@@ -133,3 +133,6 @@ Validacao apos a alteracao: Jest local com 5 suites e 33/33 testes aprovados; np
 O check remoto backend continua falhando na descoberta da suite backend/src/tests/gitCardService.test.ts, vazia na main publica. O log confirma 5 suites e 33 testes aprovados, mas Jest retorna erro porque a sexta suite nao tem teste. Esse arquivo ja estava removido no worktree antes desta etapa; nenhum teste foi removido ou ocultado por esta alteracao. Aguardo autorizacao do usuario antes de decidir como tratar o artefato legado. A pasta backend/tests/ que ja estava nao rastreada tambem foi preservada.
 
 O audit completo de desenvolvimento ainda registra 7 alertas baixos pela cadeia Jest/deepmerge 4.3.1, sem versao corrigida publicada; por decisao do usuario, aguardamos upstream sem override ou downgrade. O audit de producao segue zerado.
+## 12. Progresso A02 / issue #8 - 28/10/2026
+
+O commit local b254383 adicionou um orcamento de saida em memoria por processo, configuravel com GITHUB_API_REQUEST_BUDGET_PER_HOUR, com 429/Retry-After e testes. Ele foi mantido localmente e nao integra o PR #15 merged. A escolha do usuario foi implementar uma store compartilhada; esta etapa por processo sera substituida pela reserva atomica compartilhada.

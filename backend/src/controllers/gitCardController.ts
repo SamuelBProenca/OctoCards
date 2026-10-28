@@ -49,6 +49,9 @@ const resolveOwner = (queryOwner: unknown): string => {
 const sendError = (res: Response, error: unknown, route: string): void => {
     if (error instanceof OctoCardError) {
         console.error('OctoCards request failed', { route, code: error.code });
+        if (error.retryAfterSeconds !== undefined) {
+            res.setHeader('Retry-After', String(error.retryAfterSeconds));
+        }
         res.status(error.statusCode).json({
             error: { code: error.code, message: error.message }
         });

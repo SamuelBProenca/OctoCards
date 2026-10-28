@@ -1,4 +1,5 @@
 import { createGitCardService } from './gitCardService';
+import { createGithubRequestBudget } from '../utils/githubRequestBudget';
 
 const createClient = () => {
     const get = jest.fn();
@@ -244,10 +245,17 @@ describe('gitCardService', () => {
         ).rejects.toMatchObject({ code: 'REPOSITORY_NOT_FOUND', statusCode: 404 });
 
         const limited = createClient();
-        limited.get.mockRejectedValueOnce(githubError(403, { 'x-ratelimit-remaining': '0' }));
+        limited.get.mockRejectedValueOnce(githubError(403, {
+            'x-ratelimit-remaining': '0',
+            'retry-after': '45'
+        }));
         await expect(
             createGitCardService(limited.client).fetchRepositoryData('example', 'project')
-        ).rejects.toMatchObject({ code: 'GITHUB_RATE_LIMITED', statusCode: 429 });
+        ).rejects.toMatchObject({
+            code: 'GITHUB_RATE_LIMITED',
+            statusCode: 429,
+            retryAfterSeconds: 45
+        });
     });
 
     it('translates upstream timeouts without exposing transport details', async () => {
@@ -257,5 +265,29 @@ describe('gitCardService', () => {
         await expect(
             createGitCardService(client).fetchRepositoryData('example', 'project')
         ).rejects.toMatchObject({ code: 'GITHUB_TIMEOUT', statusCode: 504 });
+    });
+
+    it('shares the outbound budget across service clients and returns its retry time', async () => {
+        const budget = createGithubRequestBudget(1, 60_000, () => 10_000);
+        const first = createClient();
+        first.get.mockResolvedValueOnce({ data: { private: false } });
+        const second = createClient();
+        const firstService = createGitCardService(first.client, budget);
+        const secondService = createGitCardService(second.client, budget);
+
+        await expect(firstService.fetchRepositoryData('example', 'first'))
+            .rejects.toMatchObject({
+                code: 'GITHUB_RATE_LIMITED',
+                statusCode: 429,
+                retryAfterSeconds: 60
+            });
+        await expect(secondService.fetchRepositoryData('example', 'second'))
+            .rejects.toMatchObject({
+                code: 'GITHUB_RATE_LIMITED',
+                statusCode: 429,
+                retryAfterSeconds: 60
+            });
+        expect(first.get).toHaveBeenCalledTimes(1);
+        expect(second.get).not.toHaveBeenCalled();
     });
 });

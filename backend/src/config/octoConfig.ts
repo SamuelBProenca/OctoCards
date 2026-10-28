@@ -8,6 +8,7 @@ const configuredTimeout = Number(process.env.GITHUB_TIMEOUT_MS || 10000);
 const configuredPlayground = process.env.PLAYGROUND_ENABLED?.trim().toLowerCase();
 const configuredRateLimitMax = Number(process.env.API_RATE_LIMIT_MAX || 12);
 const configuredRateLimitWindow = Number(process.env.API_RATE_LIMIT_WINDOW_MS || 60000);
+const configuredGithubRequestBudget = Number(process.env.GITHUB_API_REQUEST_BUDGET_PER_HOUR || 50);
 const trustedProxyAliases = new Set(['loopback', 'linklocal', 'uniquelocal']);
 const trustedProxies = (process.env.TRUSTED_PROXIES || '')
     .split(',')
@@ -55,6 +56,10 @@ if (!Number.isInteger(configuredRateLimitWindow) || configuredRateLimitWindow <=
     throw new Error("API_RATE_LIMIT_WINDOW_MS must be a positive integer.");
 }
 
+if (!Number.isInteger(configuredGithubRequestBudget) || configuredGithubRequestBudget <= 0) {
+    throw new Error("GITHUB_API_REQUEST_BUDGET_PER_HOUR must be a positive integer.");
+}
+
 if (trustedProxies.some((entry) => !isValidTrustedProxy(entry))) {
     throw new Error('TRUSTED_PROXIES must contain valid IP addresses, CIDRs, or loopback/linklocal/uniquelocal.');
 }
@@ -67,5 +72,6 @@ export default {
     playgroundEnabled,
     apiRateLimitMax: configuredRateLimitMax,
     apiRateLimitWindowMs: configuredRateLimitWindow,
+    githubApiRequestBudgetPerHour: configuredGithubRequestBudget,
     trustedProxies
 };

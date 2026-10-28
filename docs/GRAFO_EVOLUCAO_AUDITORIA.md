@@ -92,3 +92,17 @@ flowchart TD
 ```
 
 O commit 4d34522 liga o rate limiter explicitamente aos handlers de /swagger.yaml e /GUIA_DO_OCTOCARDS.md. Validacao local: 33/33 testes, build e smoke aprovados; auditoria de producao sem vulnerabilidades. O check CodeQL remoto passou. O check backend permanece falhando porque a main publica inclui backend/src/tests/gitCardService.test.ts vazio; 5 suites passaram e 33 testes passaram, mas Jest falha na sexta suite. Nenhum teste foi apagado ou excluido da descoberta; aguardando a decisao solicitada.
+## Progresso A02 / issue #8 - 28/10/2026
+
+```mermaid
+flowchart TD
+    IN["12/min por IP: limite de entrada"] --> OUT["Orcamento de saida por processo, etapa local"]
+    OUT --> CFG["Padrao 50 chamadas GitHub / hora movel"]
+    OUT --> COUNT["Cada tentativa e contada; testes com varios clientes"]
+    OUT --> RESP["429 + Retry-After"]
+    OUT --> MULTI["Replicas ainda nao compartilham estado"]
+    OUT --> TEST["40 testes, typecheck e build/smoke aprovados"]
+    MULTI --> OPEN["Issue #8 continua aberta; store compartilhada em andamento"]
+```
+
+O commit local b254383 adicionou o orcamento por processo como etapa de validacao. Esta etapa nao foi enviada ao PR #15. A issue #8 permanece aberta; a implementacao compartilhada substituira esse estado local e coordenara as replicas.

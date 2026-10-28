@@ -32,6 +32,7 @@ GITHUB_TIMEOUT_MS=10000
 PLAYGROUND_ENABLED=false
 API_RATE_LIMIT_MAX=12
 API_RATE_LIMIT_WINDOW_MS=60000
+GITHUB_API_REQUEST_BUDGET_PER_HOUR=50
 TRUSTED_PROXIES=
 ~~~
 
@@ -39,7 +40,7 @@ OWNER define a conta usada quando a URL não informa owner. PORT escolhe a porta
 
 GITHUB_TIMEOUT_MS é o tempo máximo de cada chamada ao GitHub em milissegundos. O padrão é 10000. O servidor rejeita valores que não sejam inteiros positivos.
 
-API_RATE_LIMIT_MAX e API_RATE_LIMIT_WINDOW_MS definem o limite por endereço IP; os padrões permitem 12 chamadas a cada 60000 ms. O armazenamento é em memória e independente em cada processo. Em hospedagem atrás de proxy reverso, informe os IPs/CIDRs exatos em TRUSTED_PROXIES para obter o IP real do cliente. Sem uma configuração confiável, cabeçalhos encaminhados são ignorados. A aplicação limita requisições HTTP; a cota externa do GitHub continua compartilhada pela credencial do servidor.
+API_RATE_LIMIT_MAX e API_RATE_LIMIT_WINDOW_MS definem o limite HTTP por endereco IP; os padroes permitem 12 chamadas a cada 60000 ms. GITHUB_API_REQUEST_BUDGET_PER_HOUR limita cada chamada de saida ao GitHub; o padrao permite 50 chamadas em uma janela movel de uma hora por processo. Cada tentativa conta, inclusive falhas e novas tentativas. Ao esgotar, a API responde 429 com Retry-After. O orcamento fica em memoria, reinicia junto com o processo e nao coordena replicas; para multiplas instancias, uma store compartilhada ainda e necessaria. O TOKEN pode ter cota propria compartilhada com outras aplicacoes; ajuste o limite apenas considerando o uso real dessa credencial. TRUSTED_PROXIES deve conter os IPs/CIDRs exatos do proxy para obter o IP real do cliente.
 
 Inicie o serviço:
 

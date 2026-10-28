@@ -14,7 +14,8 @@ export class OctoCardError extends Error {
     constructor(
         public readonly code: OctoCardErrorCode,
         public readonly statusCode: number,
-        message: string
+        message: string,
+        public readonly retryAfterSeconds?: number
     ) {
         super(message);
         this.name = "OctoCardError";

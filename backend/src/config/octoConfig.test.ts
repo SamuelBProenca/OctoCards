@@ -1,10 +1,16 @@
 type RateLimitConfig = {
     apiRateLimitMax: number;
     apiRateLimitWindowMs: number;
+    githubApiRequestBudgetPerHour: number;
     trustedProxies: string[];
 };
 
-const keys = ['API_RATE_LIMIT_MAX', 'API_RATE_LIMIT_WINDOW_MS', 'TRUSTED_PROXIES'];
+const keys = [
+    'API_RATE_LIMIT_MAX',
+    'API_RATE_LIMIT_WINDOW_MS',
+    'GITHUB_API_REQUEST_BUDGET_PER_HOUR',
+    'TRUSTED_PROXIES'
+];
 const originalValues = new Map(keys.map((key) => [key, process.env[key]]));
 
 const loadConfig = (): RateLimitConfig => {
@@ -19,6 +25,7 @@ describe('OctoCards rate-limit configuration', () => {
     beforeEach(() => {
         process.env.API_RATE_LIMIT_MAX = '12';
         process.env.API_RATE_LIMIT_WINDOW_MS = '60000';
+        process.env.GITHUB_API_REQUEST_BUDGET_PER_HOUR = '50';
         process.env.TRUSTED_PROXIES = '';
     });
 
@@ -37,6 +44,7 @@ describe('OctoCards rate-limit configuration', () => {
         expect(loadConfig()).toMatchObject({
             apiRateLimitMax: 12,
             apiRateLimitWindowMs: 60000,
+            githubApiRequestBudgetPerHour: 50,
             trustedProxies: []
         });
     });
@@ -44,7 +52,9 @@ describe('OctoCards rate-limit configuration', () => {
     it.each([
         ['API_RATE_LIMIT_MAX', '0', 'API_RATE_LIMIT_MAX'],
         ['API_RATE_LIMIT_WINDOW_MS', '-1', 'API_RATE_LIMIT_WINDOW_MS'],
-        ['API_RATE_LIMIT_WINDOW_MS', '1.5', 'API_RATE_LIMIT_WINDOW_MS']
+        ['API_RATE_LIMIT_WINDOW_MS', '1.5', 'API_RATE_LIMIT_WINDOW_MS'],
+        ['GITHUB_API_REQUEST_BUDGET_PER_HOUR', '0', 'GITHUB_API_REQUEST_BUDGET_PER_HOUR'],
+        ['GITHUB_API_REQUEST_BUDGET_PER_HOUR', '2.5', 'GITHUB_API_REQUEST_BUDGET_PER_HOUR']
     ])('rejects invalid %s values', (key, value, message) => {
         process.env[key] = value;
         expect(() => loadConfig()).toThrow(message);

@@ -5,7 +5,7 @@ Itens derivados da Auditoria_Tecnica_OctoCards e do OctoCards_Grafo_de_Riscos re
 Issues remotas abertas em 28/10/2026: #8–#14. Este arquivo mantém o backlog local com contexto, decisão técnica e critérios de aceite.
 
 ## [P1] Orçamento compartilhado GitHub — A02
-12 chamadas/minuto/IP em memória não impõem orçamento global. Medir custo por endpoint/lote e avaliar store/semáforo se houver múltiplas instâncias.
+Orcamento de saida agora limita a 50 chamadas GitHub por janela movel de uma hora, compartilhado no processo; cada tentativa conta e o limite retorna 429/Retry-After. E configuravel via GITHUB_API_REQUEST_BUDGET_PER_HOUR. Estado em memoria nao coordena replicas nem outras aplicacoes que compartilham TOKEN.
 **Aceite:** orçamento documentado; 429/Retry-After; testes burst, clientes, retries/réplicas sem exposição de credencial.
 
 ## [P1] Privacidade de imagens externas — A04

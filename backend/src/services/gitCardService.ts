@@ -1,7 +1,8 @@
-import axios, { type AxiosInstance } from 'axios';
+import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios';
 import config from '../config/octoConfig';
 import { OctoCardError } from '../types/octoCardError';
 import { PropsGitCard } from '../types/gitCardType';
+import { createGithubRequestBudget, type GithubRequestBudget } from '../utils/githubRequestBudget';
 
 interface GithubRepository {
     private?: boolean;
@@ -25,6 +26,12 @@ interface GithubTree {
 type GithubClient = Pick<AxiosInstance, 'get'>;
 type CachedCard = { expiresAt: number; value: Promise<PropsGitCard> };
 type ImageCandidate = { url: string; label: string; readmeLinked: boolean };
+
+const GITHUB_API_REQUEST_WINDOW_MS = 60 * 60 * 1000;
+const processGithubRequestBudget = createGithubRequestBudget(
+    config.githubApiRequestBudgetPerHour,
+    GITHUB_API_REQUEST_WINDOW_MS
+);
 
 const CARD_CACHE_TTL_MS = 5 * 60 * 1000;
 const CARD_CACHE_MAX_ENTRIES = 500;
@@ -63,12 +70,32 @@ const normalizeGithubError = (error: unknown): OctoCardError => {
     const headers = error.response?.headers;
     const remaining = headers?.['x-ratelimit-remaining'];
     const retryAfter = headers?.['retry-after'];
+    const resetAt = Number(headers?.['x-ratelimit-reset']);
+    const retryAfterSeconds = retryAfter !== undefined
+        ? (() => {
+            const seconds = Number(retryAfter);
+            if (Number.isFinite(seconds) && seconds >= 0) {
+                return Math.max(1, Math.ceil(seconds));
+            }
+            const retryAt = Date.parse(String(retryAfter));
+            return Number.isNaN(retryAt)
+                ? undefined
+                : Math.max(1, Math.ceil((retryAt - Date.now()) / 1000));
+        })()
+        : Number.isFinite(resetAt) && resetAt > 0
+            ? Math.max(1, Math.ceil(resetAt - Date.now() / 1000))
+            : undefined;
     const rateLimited = status === 429 || (
         status === 403 && (String(remaining) === '0' || retryAfter !== undefined)
     );
 
     if (rateLimited) {
-        return new OctoCardError('GITHUB_RATE_LIMITED', 429, 'GitHub API rate limit exceeded.');
+        return new OctoCardError(
+            'GITHUB_RATE_LIMITED',
+            429,
+            'GitHub API rate limit exceeded.',
+            retryAfterSeconds
+        );
     }
 
     if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
@@ -265,12 +292,28 @@ const imageCandidateScore = (candidate: ImageCandidate): number => {
     return candidate.readmeLinked ? 40 : 10;
 };
 
-export const createGitCardService = (client: GithubClient = createGithubClient()) => {
+export const createGitCardService = (
+    client: GithubClient = createGithubClient(),
+    requestBudget: GithubRequestBudget = processGithubRequestBudget
+) => {
     const cardCache = new Map<string, CachedCard>();
+
+    const getFromGithub = <T>(url: string, options?: AxiosRequestConfig) => {
+        const retryAfterSeconds = requestBudget.reserve();
+        if (retryAfterSeconds !== null) {
+            throw new OctoCardError(
+                'GITHUB_RATE_LIMITED',
+                429,
+                'GitHub API request budget exceeded.',
+                retryAfterSeconds
+            );
+        }
+        return client.get<T>(url, options);
+    };
 
     const fetchRepoInfo = async (owner: string, repo: string): Promise<GithubRepository> => {
         try {
-            const response = await client.get<GithubRepository>(
+            const response = await getFromGithub<GithubRepository>(
                 '/repos/' + encodePathSegment(owner) + '/' + encodePathSegment(repo)
             );
             return response.data;
@@ -281,7 +324,7 @@ export const createGitCardService = (client: GithubClient = createGithubClient()
 
     const fetchRepoReadme = async (owner: string, repo: string): Promise<string> => {
         try {
-            const response = await client.get<string>(
+            const response = await getFromGithub<string>(
                 '/repos/' + encodePathSegment(owner) + '/' + encodePathSegment(repo) + '/readme',
                 { headers: { Accept: 'application/vnd.github.raw+json' } }
             );
@@ -297,7 +340,7 @@ export const createGitCardService = (client: GithubClient = createGithubClient()
 
     const fetchRepoLanguages = async (owner: string, repo: string): Promise<string[]> => {
         try {
-            const response = await client.get<Record<string, number>>(
+            const response = await getFromGithub<Record<string, number>>(
                 '/repos/' + encodePathSegment(owner) + '/' + encodePathSegment(repo) + '/languages'
             );
             return Object.keys(response.data || {});
@@ -323,7 +366,7 @@ export const createGitCardService = (client: GithubClient = createGithubClient()
             .filter((candidate) => candidate.url.length > 0);
 
         try {
-            const response = await client.get<GithubTree>(
+            const response = await getFromGithub<GithubTree>(
                 '/repos/' + encodePathSegment(owner) + '/' + encodePathSegment(repo) +
                     '/git/trees/' + encodePathSegment(branch),
                 { params: { recursive: '1' } }
@@ -354,6 +397,9 @@ export const createGitCardService = (client: GithubClient = createGithubClient()
             }
         } catch (error) {
             // Image lookup is optional; keep rate-limit failures visible to the caller.
+            if (error instanceof OctoCardError && error.code === 'GITHUB_RATE_LIMITED') {
+                throw error;
+            }
             if (isGithubRateLimited(error)) {
                 throw normalizeGithubError(error);
             }

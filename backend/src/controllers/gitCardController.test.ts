@@ -17,6 +17,7 @@ const card: PropsGitCard = {
 const createResponse = () => {
     const response = {
         status: jest.fn().mockReturnThis(),
+        setHeader: jest.fn(),
         json: jest.fn()
     };
     return response as unknown as Response;
@@ -164,5 +165,17 @@ describe('gitCardController', () => {
         expect(response.json).toHaveBeenCalledWith({
             error: { code: 'REPOSITORY_NOT_FOUND', message: 'Repository not found.' }
         });
+    });
+
+    it('forwards the GitHub request budget retry time as a response header', async () => {
+        jest.spyOn(gitCardService, 'fetchRepositoryData').mockRejectedValue(
+            new OctoCardError('GITHUB_RATE_LIMITED', 429, 'GitHub API request budget exceeded.', 37)
+        );
+        const response = createResponse();
+
+        await getGitCard(createRequest({ repo: 'project' }, { owner: 'example' }), response);
+
+        expect(response.setHeader).toHaveBeenCalledWith('Retry-After', '37');
+        expect(response.status).toHaveBeenCalledWith(429);
     });
 });
