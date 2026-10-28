@@ -54,3 +54,24 @@ flowchart TD
 ## Estado remoto em 28/10/2026
 
 Issues #8–#14 foram criadas no repositório; os links e o conteúdo detalhado estão em ISSUES_PENDENTES.md. A publicação do branch e a abertura do PR são a próxima etapa após os testes desta atualização.
+## Evolução após a abertura do PR #15 — 28/10/2026
+
+```mermaid
+flowchart TD
+    PR["PR #15 aberto<br/>issues #8–#14 abertas"] --> QL["CodeQL apontou 2 alertas<br/>missing rate limiting em sendFile"]
+    QL --> FIX["1c76d33<br/>limite docs/OpenAPI/guia: 120 por minuto"]
+    FIX --> T1["Teste HTTP do docs limiter<br/>4/4 aprovados"]
+    T1 --> T2["Suíte completa<br/>5 suites, 33/33 aprovados"]
+    T2 --> T3["Typecheck e build smoke<br/>aprovados"]
+    T3 --> T4["npm audit --omit=dev<br/>0 vulnerabilidades"]
+    FIX --> REMOTE["Nova execução CI/CodeQL<br/>pendente nesta captura"]
+    PR --> BACK["Backend CI anterior falhou<br/>src/tests/gitCardService.test.ts"]
+    BACK --> ZERO["Arquivo na main tem 0 bytes<br/>Jest rejeita suite vazia"]
+    ZERO --> WAIT["Aguardar decisão do usuário<br/>nenhuma remoção feita"]
+```
+
+O CodeQL apontou duas rotas que enviam arquivos da documentação sem rate limit. O commit 1c76d33 adicionou um limite separado de 120/minuto, compartilhado entre /docs, /swagger.yaml e o guia, com erro DOCS_RATE_LIMITED e Retry-After. O novo teste HTTP verifica o limite entre rotas.
+
+O job backend falhou no checkout público porque backend/src/tests/gitCardService.test.ts tem zero bytes na main e o Jest rejeita uma suite vazia. O worktree já mostrava esse arquivo como removido antes desta correção. Mantive-o fora dos commits e estou aguardando a autorização solicitada antes de remover ou excluir esse teste da descoberta do Jest.
+
+PR: [#15](https://github.com/SamuelBProenca/OctoCards/pull/15). Issues: [#8–#14](https://github.com/SamuelBProenca/OctoCards/issues).

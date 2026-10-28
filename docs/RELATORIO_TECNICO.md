@@ -116,3 +116,10 @@ A suíte continua com 5 suites e 32/32 testes aprovados; typecheck e build smoke
 O advisory [GHSA-gcqx-w48m-w2h4 / CVE-2026-93753](https://github.com/advisories/GHSA-gcqx-w48m-w2h4) marca deepmerge até 4.3.1 como afetado e não lista versão corrigida. A orientação do usuário foi registrar e aguardar upstream. Não foi aplicado override nem o npm audit --force, que propõe downgrade incompatível do Jest.
 
 O [grafo da evolução](GRAFO_EVOLUCAO_AUDITORIA.md) registra esta rodada, os testes, a varredura de padrões e os itens ainda pendentes.
+## 9. Resultado do PR e correção CodeQL em 28/10/2026
+
+O PR [#15](https://github.com/SamuelBProenca/OctoCards/pull/15) reúne a auditoria e as entregas alfa. Issues #8–#14 estão abertas.
+
+CodeQL apontou duas rotas de envio de arquivos da documentação sem rate limit. O commit 1c76d33 adicionou limite separado de 120/minuto, com teste HTTP de 429/Retry-After. Após essa mudança: 5 suítes, 33/33 testes; typecheck, build smoke e npm audit --omit=dev aprovados. A nova execução remota do workflow ainda estava pendente na última consulta.
+
+O job backend remoto falhou ao descobrir a suite vazia backend/src/tests/gitCardService.test.ts, que tem 0 bytes na main. Ela já estava removida no worktree antes destas alterações e não foi incluída em commit. O usuário pediu confirmação antes de apagar testes antigos; a remoção continua pendente de autorização, portanto o CI backend ainda precisa desse encaminhamento.
