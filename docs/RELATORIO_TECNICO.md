@@ -123,3 +123,13 @@ O PR [#15](https://github.com/SamuelBProenca/OctoCards/pull/15) reúne a auditor
 CodeQL apontou duas rotas de envio de arquivos da documentação sem rate limit. O commit 1c76d33 adicionou limite separado de 120/minuto, com teste HTTP de 429/Retry-After. Após essa mudança: 5 suítes, 33/33 testes; typecheck, build smoke e npm audit --omit=dev aprovados. A nova execução remota do workflow ainda estava pendente na última consulta.
 
 O job backend remoto falhou ao descobrir a suite vazia backend/src/tests/gitCardService.test.ts, que tem 0 bytes na main. Ela já estava removida no worktree antes destas alterações e não foi incluída em commit. O usuário pediu confirmação antes de apagar testes antigos; a remoção continua pendente de autorização, portanto o CI backend ainda precisa desse encaminhamento.
+
+## 10. Revalidacao final do PR #15 - 28/10/2026
+
+O commit 4d34522 anexa o rate limiter diretamente aos handlers GET de /swagger.yaml e /GUIA_DO_OCTOCARDS.md. O teste HTTP cobre sucesso nas paginas documentais e resposta 429 com Retry-After ao exceder o limite compartilhado.
+
+Validacao apos a alteracao: Jest local com 5 suites e 33/33 testes aprovados; npm run test:build aprovou compilacao e smoke de producao; npm audit --omit=dev encontrou zero vulnerabilidades. O check remoto CodeQL do PR passou. A verificacao de padroes sensiveis encontrou zero matches de formatos conhecidos, zero atribuicoes genericas candidatas e zero arquivos .env rastreados.
+
+O check remoto backend continua falhando na descoberta da suite backend/src/tests/gitCardService.test.ts, vazia na main publica. O log confirma 5 suites e 33 testes aprovados, mas Jest retorna erro porque a sexta suite nao tem teste. Esse arquivo ja estava removido no worktree antes desta etapa; nenhum teste foi removido ou ocultado por esta alteracao. Aguardo autorizacao do usuario antes de decidir como tratar o artefato legado. A pasta backend/tests/ que ja estava nao rastreada tambem foi preservada.
+
+O audit completo de desenvolvimento ainda registra 7 alertas baixos pela cadeia Jest/deepmerge 4.3.1, sem versao corrigida publicada; por decisao do usuario, aguardamos upstream sem override ou downgrade. O audit de producao segue zerado.

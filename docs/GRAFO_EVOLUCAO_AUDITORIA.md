@@ -75,3 +75,20 @@ O CodeQL apontou duas rotas que enviam arquivos da documentação sem rate limit
 O job backend falhou no checkout público porque backend/src/tests/gitCardService.test.ts tem zero bytes na main e o Jest rejeita uma suite vazia. O worktree já mostrava esse arquivo como removido antes desta correção. Mantive-o fora dos commits e estou aguardando a autorização solicitada antes de remover ou excluir esse teste da descoberta do Jest.
 
 PR: [#15](https://github.com/SamuelBProenca/OctoCards/pull/15). Issues: [#8–#14](https://github.com/SamuelBProenca/OctoCards/issues).
+
+## Revalidacao final do PR #15 - 28/10/2026
+
+```mermaid
+flowchart TD
+    C1["1c76d33: protecao das rotas docs"] --> Q1["CodeQL merge ainda apontou 2 sendFile"]
+    Q1 --> C2["4d34522: limiter anexado diretamente aos handlers GET"]
+    C2 --> T["Jest local: 5 suites, 33/33 testes aprovados"]
+    C2 --> B["Build + smoke: aprovado"]
+    C2 --> S["npm audit producao: 0 vulnerabilidades"]
+    C2 --> Q2["CodeQL do PR: aprovado"]
+    C2 --> CI["Backend CI: falha por suite antiga vazia"]
+    CI --> H["33 testes passam; Jest rejeita 6a suite sem testes"]
+    H --> A["Aguardar autorizacao do usuario antes de remover/excluir"]
+```
+
+O commit 4d34522 liga o rate limiter explicitamente aos handlers de /swagger.yaml e /GUIA_DO_OCTOCARDS.md. Validacao local: 33/33 testes, build e smoke aprovados; auditoria de producao sem vulnerabilidades. O check CodeQL remoto passou. O check backend permanece falhando porque a main publica inclui backend/src/tests/gitCardService.test.ts vazio; 5 suites passaram e 33 testes passaram, mas Jest falha na sexta suite. Nenhum teste foi apagado ou excluido da descoberta; aguardando a decisao solicitada.
