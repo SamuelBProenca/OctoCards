@@ -62,13 +62,11 @@ export const createApp = (options: AppOptions = {}): Express => {
         }
     });
     app.use('/docs', docsRateLimiter);
-    app.use('/swagger.yaml', docsRateLimiter);
-    app.use('/GUIA_DO_OCTOCARDS.md', docsRateLimiter);
 
     // Keep the human-readable docs and machine-readable OpenAPI available in API-only mode.
     app.use('/docs', express.static(path.join(publicDirectory, 'docs'), { index: 'index.html' }));
-    app.get('/swagger.yaml', (_req, res) => res.sendFile(path.join(publicDirectory, 'swagger.yaml')));
-    app.get('/GUIA_DO_OCTOCARDS.md', (_req, res) => res.sendFile(path.join(publicDirectory, 'GUIA_DO_OCTOCARDS.md')));
+    app.get('/swagger.yaml', docsRateLimiter, (_req, res) => res.sendFile(path.join(publicDirectory, 'swagger.yaml')));
+    app.get('/GUIA_DO_OCTOCARDS.md', docsRateLimiter, (_req, res) => res.sendFile(path.join(publicDirectory, 'GUIA_DO_OCTOCARDS.md')));
     app.use('/api/cards', gitCardRoutes);
 
     if (playgroundEnabled) {

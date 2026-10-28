@@ -109,17 +109,19 @@ describe('Express app modes', () => {
     it('rate limits documentation file routes and returns Retry-After', async () => {
         await withServer({
             playgroundEnabled: false,
-            docsRateLimit: { windowMs: 60_000, limit: 2 }
+            docsRateLimit: { windowMs: 60_000, limit: 3 }
         }, async (baseUrl) => {
             const openapi = await fetch(baseUrl + '/swagger.yaml');
             const guide = await fetch(baseUrl + '/GUIA_DO_OCTOCARDS.md');
             const docs = await fetch(baseUrl + '/docs/');
+            const limitedDocs = await fetch(baseUrl + '/docs/');
 
             expect(openapi.status).toBe(200);
             expect(guide.status).toBe(200);
-            expect(docs.status).toBe(429);
-            expect(docs.headers.get('retry-after')).not.toBeNull();
-            expect(await docs.json()).toMatchObject({
+            expect(docs.status).toBe(200);
+            expect(limitedDocs.status).toBe(429);
+            expect(limitedDocs.headers.get('retry-after')).not.toBeNull();
+            expect(await limitedDocs.json()).toMatchObject({
                 error: { code: 'DOCS_RATE_LIMITED' }
             });
         });
