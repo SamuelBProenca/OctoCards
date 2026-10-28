@@ -2,7 +2,7 @@
 
 Itens derivados da Auditoria_Tecnica_OctoCards e do OctoCards_Grafo_de_Riscos recebidos. Não inserir tokens, credenciais ou dados privados em issues/logs.
 
-A integração recusou criação remota com 403 Resource not accessible by integration. GitHub CLI existe, mas o login local está inválido. Nenhuma issue remota foi criada; este arquivo permite retomar após restaurar autenticação.
+Issues remotas abertas em 28/10/2026: #8–#14. Este arquivo mantém o backlog local com contexto, decisão técnica e critérios de aceite.
 
 ## [P1] Orçamento compartilhado GitHub — A02
 12 chamadas/minuto/IP em memória não impõem orçamento global. Medir custo por endpoint/lote e avaliar store/semáforo se houver múltiplas instâncias.
@@ -35,3 +35,20 @@ backend/testOctoCardRepos.ts usa nomes placeholder apesar de Jest cobrir cenári
 
 ## Corrigidos
 A01 limites; A05 logs; A06 build; A07 licença; A08 HTTP/headless; A09 owner; A11 imagens. A02/A03/A10/A12 permanecem parciais.
+
+## [P2] Acompanhar advisory sem versão corrigida de deepmerge — achado novo 28/10
+
+O audit completo sinalizou 7 vulnerabilidades baixas através de deepmerge 4.3.1, dependência transitiva de desenvolvimento do Jest. npm audit --omit=dev reporta zero vulnerabilidades. O advisory oficial ainda não lista versão corrigida.
+
+**Decisão atual:** usuário escolheu aguardar upstream; não aplicar override nem downgrade forçado do Jest.
+
+**Aceite:** atualizar dependências quando existir versão corrigida; executar audit completo, audit de produção, testes, typecheck e build; fechar o item somente com o advisory resolvido.
+## Links para as issues remotas
+
+- [#8 Orçamento compartilhado GitHub](https://github.com/SamuelBProenca/OctoCards/issues/8)
+- [#9 Semântica e limite global de lotes](https://github.com/SamuelBProenca/OctoCards/issues/9)
+- [#10 Privacidade de imagens externas](https://github.com/SamuelBProenca/OctoCards/issues/10)
+- [#11 Secret Scanning e Push Protection](https://github.com/SamuelBProenca/OctoCards/issues/11)
+- [#12 Contrato TypeScript/OpenAPI](https://github.com/SamuelBProenca/OctoCards/issues/12)
+- [#13 Script manual placeholder](https://github.com/SamuelBProenca/OctoCards/issues/13)
+- [#14 Advisory deepmerge sem correção](https://github.com/SamuelBProenca/OctoCards/issues/14)

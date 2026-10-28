@@ -107,4 +107,12 @@ Na pasta backend: npm ci; npm test -- --runInBand; npx tsc --noEmit; npm run tes
 
 ## 7. Próximos passos
 
-[ISSUES_PENDENTES.md](ISSUES_PENDENTES.md) registra A02/A03/A04/A10/A12/A13 com prioridade, proposta e critérios. A integração recusou criação remota e o GitHub CLI está sem credencial válida; backlog fica local até autenticação regularizada.
+[ISSUES_PENDENTES.md](ISSUES_PENDENTES.md) registra A02/A03/A04/A10/A12/A13/A14. As sete issues remotas foram abertas em 28/10/2026 (#8–#14); o arquivo mantém o backlog detalhado para consulta.
+
+## 8. Revalidação em 28/10/2026
+
+A suíte continua com 5 suites e 32/32 testes aprovados; typecheck e build smoke passaram. npm audit --omit=dev encontrou zero vulnerabilidades. O audit completo encontrou 7 avisos baixos, todos transitivos da árvore de desenvolvimento do Jest via deepmerge 4.3.1.
+
+O advisory [GHSA-gcqx-w48m-w2h4 / CVE-2026-93753](https://github.com/advisories/GHSA-gcqx-w48m-w2h4) marca deepmerge até 4.3.1 como afetado e não lista versão corrigida. A orientação do usuário foi registrar e aguardar upstream. Não foi aplicado override nem o npm audit --force, que propõe downgrade incompatível do Jest.
+
+O [grafo da evolução](GRAFO_EVOLUCAO_AUDITORIA.md) registra esta rodada, os testes, a varredura de padrões e os itens ainda pendentes.
