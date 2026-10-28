@@ -13,6 +13,7 @@ export interface ApiRateLimitOptions {
 export interface AppOptions {
     playgroundEnabled?: boolean;
     apiRateLimit?: ApiRateLimitOptions;
+    docsRateLimit?: ApiRateLimitOptions;
     trustedProxies?: string[];
 }
 
@@ -46,6 +47,23 @@ export const createApp = (options: AppOptions = {}): Express => {
         }
     });
     app.use('/api/cards', apiRateLimiter);
+    const docsRateLimiter = rateLimit({
+        windowMs: options.docsRateLimit?.windowMs ?? 60_000,
+        limit: options.docsRateLimit?.limit ?? 120,
+        standardHeaders: true,
+        legacyHeaders: false,
+        handler: (_req, res) => {
+            res.status(429).json({
+                error: {
+                    code: 'DOCS_RATE_LIMITED',
+                    message: 'The OctoCards documentation request limit has been reached. Please retry later.'
+                }
+            });
+        }
+    });
+    app.use('/docs', docsRateLimiter);
+    app.use('/swagger.yaml', docsRateLimiter);
+    app.use('/GUIA_DO_OCTOCARDS.md', docsRateLimiter);
 
     // Keep the human-readable docs and machine-readable OpenAPI available in API-only mode.
     app.use('/docs', express.static(path.join(publicDirectory, 'docs'), { index: 'index.html' }));

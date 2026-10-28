@@ -4,6 +4,7 @@ import { createApp } from '../app';
 type TestAppOptions = {
     playgroundEnabled: boolean;
     apiRateLimit?: { windowMs: number; limit: number };
+    docsRateLimit?: { windowMs: number; limit: number };
     trustedProxies?: string[];
 };
 
@@ -102,6 +103,24 @@ describe('Express app modes', () => {
             expect(third.headers.get('retry-after')).not.toBeNull();
             expect(await third.json()).toMatchObject({
                 error: { code: 'API_RATE_LIMITED' }
+            });
+        });
+    });
+    it('rate limits documentation file routes and returns Retry-After', async () => {
+        await withServer({
+            playgroundEnabled: false,
+            docsRateLimit: { windowMs: 60_000, limit: 2 }
+        }, async (baseUrl) => {
+            const openapi = await fetch(baseUrl + '/swagger.yaml');
+            const guide = await fetch(baseUrl + '/GUIA_DO_OCTOCARDS.md');
+            const docs = await fetch(baseUrl + '/docs/');
+
+            expect(openapi.status).toBe(200);
+            expect(guide.status).toBe(200);
+            expect(docs.status).toBe(429);
+            expect(docs.headers.get('retry-after')).not.toBeNull();
+            expect(await docs.json()).toMatchObject({
+                error: { code: 'DOCS_RATE_LIMITED' }
             });
         });
     });
