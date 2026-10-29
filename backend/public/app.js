@@ -68,20 +68,29 @@
     notation: Number(value) >= 10000 ? "compact" : "standard",
     maximumFractionDigits: 1
   }).format(Number(value) || 0);
-  const readmeExcerpt = (markdown) => {
-    const lines = String(markdown || "")
-      .replace(/\r/g, "")
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line && !/^(\x60{3}|~~~)/.test(line) && !/^\[?!\[/.test(line))
-      .map((line) => line
+  const sanitizeReadmeLine = (line) => {
+    let sanitized = String(line || "");
+    let previous;
+    do {
+      previous = sanitized;
+      sanitized = sanitized
         .replace(/^#{1,6}\s*/, "")
         .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
         .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
         .replace(/<[^>]*>/g, "")
         .replace(/\x60/g, "")
         .replace(/[*_~]/g, "")
-        .trim())
+        .trim();
+    } while (sanitized !== previous);
+    return sanitized;
+  };
+  const readmeExcerpt = (markdown) => {
+    const lines = String(markdown || "")
+      .replace(/\r/g, "")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line && !/^(\x60{3}|~~~)/.test(line) && !/^\[?!\[/.test(line))
+      .map((line) => sanitizeReadmeLine(line))
       .filter((line) => line && !/^[-=]{3,}$/.test(line));
     const excerpt = lines.find((line) => line.length > 12) || lines[0] || "Este repositório ainda não tem uma descrição disponível.";
     return excerpt.length > 166 ? excerpt.slice(0, 163).trimEnd() + "…" : excerpt;
