@@ -25,7 +25,7 @@
         <a href="#workspace">Explorar</a>
         <a href="#about-api">A API</a>
         <a href="/docs/">Documentação</a>
-        <a id="header-api-link" class="topbar__api-link" href="/api/cards/OctoCards?owner=SamuelBProenca" target="_blank" rel="noopener noreferrer">
+        <a id="header-api-link" class="topbar__api-link" href="/api/cards/Hello-World?owner=octocat" target="_blank" rel="noopener noreferrer">
           <span>JSON direto</span>
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 11 11 5M5.5 5H11v5.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
@@ -57,12 +57,12 @@
           <label for="owner">Conta do GitHub</label>
           <div class="input-wrap input-wrap--owner">
             <span class="input-prefix" aria-hidden="true">@</span>
-            <input id="owner" name="owner" type="text" value="SamuelBProenca" autocomplete="off" spellcheck="false" required>
+            <input id="owner" name="owner" type="text" value="octocat" autocomplete="off" spellcheck="false" required>
           </div>
         </div>
         <div class="field field--repos">
           <label for="repos">Repositórios</label>
-          <input id="repos" name="repos" type="text" value="OctoCards, LinkKeeper" autocomplete="off" spellcheck="false" placeholder="OctoCards, LinkKeeper" required>
+          <input id="repos" name="repos" type="text" value="Hello-World, Spoon-Knife" autocomplete="off" spellcheck="false" placeholder="Hello-World, Spoon-Knife" required>
         </div>
         <button class="button button--primary" id="submit-button" type="submit">
           <span>Buscar repositórios</span>
@@ -72,11 +72,11 @@
       <div class="preset-row">
         <span class="preset-row__label">COLEÇÕES DE EXEMPLO</span>
         <div class="preset-list" id="preset-list" aria-label="Coleções de demonstração">
-          <button class="preset-button is-selected" type="button" data-preset="mine" aria-pressed="true">Meus projetos</button>
+          <button class="preset-button" type="button" data-preset="mine" aria-pressed="false">Meus projetos</button>
           <button class="preset-button" type="button" data-preset="akita" aria-pressed="false">Fábio Akita</button>
           <button class="preset-button" type="button" data-preset="lucas" aria-pressed="false">Lucas Montano</button>
           <button class="preset-button" type="button" data-preset="filipe" aria-pressed="false">Filipe Deschamps</button>
-          <button class="preset-button" type="button" data-preset="octocat" aria-pressed="false">Octocat · demo</button>
+          <button class="preset-button is-selected" type="button" data-preset="octocat" aria-pressed="true">Octocat · demo</button>
         </div>
       </div>
       <p class="request-status" id="request-status" role="status" aria-live="polite">Preparando a primeira consulta…</p>
@@ -94,7 +94,7 @@
             <button class="view-switch__button" id="json-view-button" type="button" aria-pressed="false">JSON</button>
           </div>
           <button class="button button--quiet" id="copy-all-button" type="button">Copiar JSON</button>
-          <a class="text-link" id="direct-api-link" href="/api/cards/OctoCards?owner=SamuelBProenca" target="_blank" rel="noopener noreferrer">Abrir endpoint</a>
+          <a class="text-link" id="direct-api-link" href="/api/cards/Hello-World?owner=octocat" target="_blank" rel="noopener noreferrer">Abrir endpoint</a>
         </div>
       </div>
       <div class="error-panel" id="error-panel" role="alert" hidden></div>
@@ -116,11 +116,11 @@
         <p>O playground é uma amostra de uso, não um requisito. A API entrega os dados em JSON para você criar e controlar qualquer front-end.</p>
       </div>
       <div class="api-note__routes" aria-label="Rotas disponíveis">
-        <a href="/api/cards/OctoCards?owner=SamuelBProenca" target="_blank" rel="noopener noreferrer">
+        <a href="/api/cards/Hello-World?owner=octocat" target="_blank" rel="noopener noreferrer">
           <span><small>UM REPOSITÓRIO</small><code>GET /api/cards/:repo</code></span>
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 12 12 4M5 4h7v7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
-        <a href="/api/cards?repos=OctoCards%2CLinkKeeper&owner=SamuelBProenca" target="_blank" rel="noopener noreferrer">
+        <a href="/api/cards?repos=Hello-World%2CSpoon-Knife&owner=octocat" target="_blank" rel="noopener noreferrer">
           <span><small>UMA COLEÇÃO</small><code>GET /api/cards?repos=…</code></span>
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 12 12 4M5 4h7v7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>

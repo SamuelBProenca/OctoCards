@@ -45,7 +45,8 @@ const mapWithLimitedConcurrency = async <T, R>(
 /** Fetch all requested cards in order; a failure rejects the whole request. */
 export async function OctoCardRepos(
     repos: string[],
-    owner: string | undefined = config.owner
+    owner: string | undefined = config.owner,
+    requestToken?: string
 ): Promise<PropsGitCard[]> {
     if (!owner) {
         throw new OctoCardError(
@@ -58,6 +59,6 @@ export async function OctoCardRepos(
     return mapWithLimitedConcurrency(
         repos,
         MAX_CONCURRENT_REPOSITORY_FETCHES,
-        (repo) => gitCardService.fetchRepositoryData(owner, repo)
+        (repo) => gitCardService.fetchRepositoryData(owner, repo, requestToken)
     );
 }

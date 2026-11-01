@@ -40,6 +40,9 @@ const run = async () => {
       PORT: String(port),
       OWNER: 'octocat',
       TOKEN: '',
+      GITHUB_AUTH_MODE: 'anonymous',
+      GITHUB_REQUEST_BUDGET_STORE: 'memory',
+      GITHUB_API_REQUEST_BUDGET_PER_HOUR: '50',
       PLAYGROUND_ENABLED: 'false',
       API_RATE_LIMIT_MAX: '20',
       API_RATE_LIMIT_WINDOW_MS: '60000',
@@ -65,6 +68,11 @@ const run = async () => {
         const docs = await request(port, '/docs/');
         assert.equal(docs.status, 200);
         assert.match(docs.body, /Use a API do seu jeito/);
+
+        const guide = await request(port, '/GUIA_DO_OCTOCARDS.md');
+        assert.equal(guide.status, 200);
+        assert.match(guide.body, /GITHUB_AUTH_MODE=request/);
+        assert.match(guide.body, /GITHUB_REQUEST_BUDGET_STORE=memory/);
 
         const stylesheet = await request(port, '/docs/docs.css');
         assert.equal(stylesheet.status, 200);

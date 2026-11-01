@@ -57,18 +57,18 @@
         <p>Use o domínio da instância publicada ou o endereço local do backend. Se a sua página e a API estiverem no mesmo host, <code>window.location.origin</code> funciona para ambos.</p>
         <div class="docs-example">
           <div class="docs-example__head"><div><h3>Online</h3><p>Substitua <code>SEU_HOST</code> pelo domínio publicado.</p></div><button class="copy-button" type="button" data-copy-target="online-request">Copiar</button></div>
-          <pre id="online-request"><code>curl "https://SEU_HOST/api/cards/OctoCards?owner=SamuelBProenca"</code></pre>
+          <pre id="online-request"><code>curl "https://SEU_HOST/api/cards/Hello-World?owner=octocat"</code></pre>
         </div>
         <div class="docs-example">
           <div class="docs-example__head"><div><h3>Local</h3><p>Usa a porta padrão <code>3000</code>.</p></div><button class="copy-button" type="button" data-copy-target="local-request">Copiar</button></div>
-          <pre id="local-request"><code>curl "http://localhost:3000/api/cards/OctoCards?owner=SamuelBProenca"</code></pre>
+          <pre id="local-request"><code>curl "http://localhost:3000/api/cards/Hello-World?owner=octocat"</code></pre>
         </div>
         <div class="docs-example">
           <div class="docs-example__head"><div><h3>Buscar uma coleção em JavaScript</h3><p>Exemplo para uma página servida no mesmo host da API.</p></div><button class="copy-button" type="button" data-copy-target="fetch-example">Copiar</button></div>
           <pre id="fetch-example"><code>const apiBaseUrl = window.location.origin;
 const params = new URLSearchParams({
-  repos: "OctoCards,LinkKeeper",
-  owner: "SamuelBProenca"
+  repos: "Hello-World,Spoon-Knife",
+  owner: "octocat"
 });
 const requestUrl = new URL("/api/cards", apiBaseUrl);
 requestUrl.search = params.toString();
@@ -129,7 +129,7 @@ TRUSTED_PROXIES=</code></pre>
         </div>
         <div class="docs-example">
           <div class="docs-example__head"><div><h3>Consultar vários repositórios</h3><p>A ordem da resposta acompanha a ordem enviada.</p></div><button class="copy-button" type="button" data-copy-target="collection-request">Copiar</button></div>
-          <pre id="collection-request"><code>curl "http://localhost:3000/api/cards?repos=OctoCards%2CLinkKeeper&amp;owner=SamuelBProenca"</code></pre>
+          <pre id="collection-request"><code>curl "http://localhost:3000/api/cards?repos=Hello-World%2CSpoon-Knife&amp;owner=octocat"</code></pre>
         </div>
         <p>Se qualquer item falhar, a requisição da coleção retorna um erro em vez de resultados parciais.</p>
       </section>

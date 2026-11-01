@@ -32,14 +32,19 @@ GITHUB_TIMEOUT_MS=10000
 PLAYGROUND_ENABLED=false
 API_RATE_LIMIT_MAX=12
 API_RATE_LIMIT_WINDOW_MS=60000
+GITHUB_API_REQUEST_BUDGET_PER_HOUR=50
+GITHUB_AUTH_MODE=request
+GITHUB_REQUEST_BUDGET_STORE=memory
+GITHUB_REQUEST_BUDGET_KEY=octocards:github-api-budget
+REDIS_URL=
 TRUSTED_PROXIES=
 ~~~
 
-OWNER define a conta usada quando a URL não informa owner. PORT escolhe a porta do servidor. TOKEN é opcional, mas autenticar as consultas evita que o playground dependa apenas da cota pública não autenticada. Use uma credencial de servidor com acesso de leitura necessário aos repositórios públicos. O valor deve ficar no backend e nunca no JavaScript do navegador. O arquivo .env está ignorado pelo Git; não o adicione ao commit.
+OWNER define a conta usada quando a URL nao informa owner. PORT escolhe a porta. TOKEN e usado somente em modo server, para auto-hospedagem; mantenha-o apenas no ambiente local/servidor. GITHUB_AUTH_MODE=request e o padrao: a API aceita Authorization: Bearer <token> opcional por requisicao e nunca usa TOKEN como fallback. Sem esse cabecalho, a chamada e anonima. O modo anonymous rejeita credenciais enviadas; o modo server usa o TOKEN do operador em todas as consultas. A API permanece limitada a repositorios publicos.
 
 GITHUB_TIMEOUT_MS é o tempo máximo de cada chamada ao GitHub em milissegundos. O padrão é 10000. O servidor rejeita valores que não sejam inteiros positivos.
 
-API_RATE_LIMIT_MAX e API_RATE_LIMIT_WINDOW_MS definem o limite por endereço IP; os padrões permitem 12 chamadas a cada 60000 ms. O armazenamento é em memória e independente em cada processo. Em hospedagem atrás de proxy reverso, informe os IPs/CIDRs exatos em TRUSTED_PROXIES para obter o IP real do cliente. Sem uma configuração confiável, cabeçalhos encaminhados são ignorados. A aplicação limita requisições HTTP; a cota externa do GitHub continua compartilhada pela credencial do servidor.
+API_RATE_LIMIT_MAX e API_RATE_LIMIT_WINDOW_MS limitam requisicoes recebidas por IP. GITHUB_API_REQUEST_BUDGET_PER_HOUR define o teto total de chamadas externas a partir desta instalacao (padrao 50/hora); todos os consumidores compartilham esse teto. Cada tentativa conta. Quando esgota, a API responde 429 com Retry-After. GITHUB_REQUEST_BUDGET_STORE=memory serve para desenvolvimento local e nao coordena processos. Em NODE_ENV=production o padrao e redis e REDIS_URL e obrigatoria; configure a mesma URL e GITHUB_REQUEST_BUDGET_KEY em todas as replicas. A store mantem apenas horarios/identificadores aleatorios, nunca o token GitHub. Se Redis ficar indisponivel, a API falha fechada com 503. O envio de token por requisicao significa que o servidor o recebe temporariamente em memoria: use HTTPS e somente um servidor em que confia; o OctoCards nao o retorna, registra ou persiste.
 
 Inicie o serviço:
 
@@ -72,19 +77,19 @@ O JSON mantém o campo illustration_image_url por compatibilidade com a estrutur
 ### Um repositório
 
 ~~~http
-GET /api/cards/OctoCards?owner=SamuelBProenca
+GET /api/cards/Hello-World?owner=octocat
 ~~~
 
 Retorna um objeto:
 
 ~~~json
 {
-  "name": "OctoCards",
-  "description": "# OctoCards\n...",
+  "name": "Hello-World",
+  "description": "# Hello-World\n...",
   "principal_languages": ["TypeScript"],
   "stars": 0,
   "forks": 0,
-  "url": "https://github.com/SamuelBProenca/OctoCards",
+  "url": "https://github.com/octocat/Hello-World",
   "illustration_image_url": "https://raw.githubusercontent.com/..."
 }
 ~~~
@@ -92,7 +97,7 @@ Retorna um objeto:
 ### Uma coleção
 
 ~~~http
-GET /api/cards?repos=OctoCards%2CLinkKeeper&owner=SamuelBProenca
+GET /api/cards?repos=Hello-World%2CSpoon-Knife&owner=octocat
 ~~~
 
 Retorna uma lista na ordem solicitada. Se qualquer item falhar, a API retorna o erro correspondente para a requisição inteira, sem uma coleção parcial.
@@ -124,6 +129,127 @@ As respostas de erro seguem o formato JSON com um objeto error contendo code e m
 | 429 | GITHUB_RATE_LIMITED | A cota do GitHub usada pelo servidor acabou; configure TOKEN ou aguarde a renovação. |
 | 502 | UPSTREAM_ERROR | Falha ao consultar o GitHub. |
 | 504 | GITHUB_TIMEOUT | O GitHub não respondeu dentro do tempo configurado. |
+
+### Integrar seu próprio app: coleções, cliente e cache
+
+**O que é a API:** o backend do OctoCards busca dados públicos do GitHub e responde em JSON. O playground é apenas um cliente de demonstração. Seu app pode chamar a mesma API com `fetch`, `curl`, Postman ou outra ferramenta, sem carregar o site do OctoCards.
+
+#### Passo a passo: testar a API com um arquivo independente
+
+Este exemplo é um pequeno cliente de terminal, não um site. Ele consulta vários repositórios e imprime um resumo e o JSON completo. Você não precisa instalar pacotes npm nem criar rotas. Requer Node.js 18 ou superior, que já inclui `fetch`.
+
+1. Confirme que o backend está rodando. O padrão é `http://localhost:3000`; use a porta indicada no terminal caso tenha configurado outra. O endereço do playground pode ser diferente do endereço da API.
+2. Crie uma pasta para o seu cliente, separada de `backend/src` do projeto OctoCards. Dentro dela, crie o arquivo `teste-octocards.mjs`.
+3. Cole este código e ajuste `owner` e `repos` para os repositórios públicos que deseja consultar:
+
+~~~js
+const API_BASE_URL = "http://localhost:3000";
+const collection = {
+  owner: "octocat",
+  repos: ["Hello-World", "Spoon-Knife"],
+};
+
+async function main() {
+  const query = new URLSearchParams({
+    owner: collection.owner,
+    repos: collection.repos.join(","),
+  });
+  const response = await fetch(`${API_BASE_URL}/api/cards?${query}`);
+  const data = await response.json();
+
+  if (!response.ok) {
+    console.error(`OctoCards respondeu HTTP ${response.status}:`, data);
+    process.exitCode = 1;
+    return;
+  }
+
+  for (const card of data) {
+    console.log(`${card.name} — ★ ${card.stars} — ${card.url}`);
+  }
+
+  console.log("Resposta JSON completa:");
+  console.log(JSON.stringify(data, null, 2));
+}
+
+main().catch((error) => {
+  console.error("Não foi possível consultar o OctoCards:", error.message);
+  process.exitCode = 1;
+});
+~~~
+
+4. Abra um terminal nessa pasta e execute `node --version`. Se a versão for menor que 18, instale uma versão mais recente do Node.js.
+5. Execute `node ./teste-octocards.mjs`. O resultado aparece no terminal; não precisa abrir o playground.
+
+Para consultar a API online, troque `API_BASE_URL` pela URL HTTPS publicada. Para testar a instalação local, deixe `http://localhost:3000` ou use a porta real do backend. Como os repositórios são públicos, não adicione token GitHub ao arquivo. Não coloque esse arquivo de teste em `backend/src`: esse diretório contém o código do servidor, enquanto o `.mjs` é um cliente consumidor independente.
+
+**Onde guardar sua seleção:** no app consumidor, crie uma configuração com o owner e os nomes exatos dos repositórios. O apelido `portfolio` abaixo é apenas uma chave local do seu app; ele não cria uma rota no servidor nem fica visível para outros consumidores.
+
+~~~ts
+const API_BASE_URL = "http://localhost:3000"; // online: URL HTTPS da sua instalação
+
+export const collections = {
+  portfolio: {
+    owner: "octocat",
+    repos: ["Hello-World", "Spoon-Knife"],
+  },
+} as const;
+
+export async function getCollection(name: keyof typeof collections) {
+  const collection = collections[name];
+  const query = new URLSearchParams({
+    owner: collection.owner,
+    repos: collection.repos.join(","),
+  });
+  const response = await fetch(`${API_BASE_URL}/api/cards?${query}`);
+
+  if (!response.ok) {
+    const body = await response.json();
+    throw new Error(body.error?.message ?? `OctoCards respondeu HTTP ${response.status}`);
+  }
+
+  return response.json();
+}
+
+// Exemplo no seu app:
+const cards = await getCollection("portfolio");
+~~~
+
+Para testar localmente, inicie o backend com `npm run dev` e mantenha `API_BASE_URL` como `http://localhost:3000`. Para usar uma instalação online, troque pelo endereço HTTPS publicado. O código faz uma chamada HTTP para OctoCards e recebe um array JSON; seu app decide como mostrar os cartões.
+
+A rota `GET /api/cards` aceita até **10 repositórios por chamada**, todos do **mesmo owner**. Para listas maiores, divida em lotes e limite as chamadas simultâneas; para owners diferentes, faça uma consulta para cada owner. Se algum item falhar, a resposta do lote inteiro é um erro, sem resultados parciais. Uma chamada HTTP ao OctoCards pode levar o backend a fazer mais de uma chamada ao GitHub; por isso, lotes grandes ou repetidos podem consumir o orçamento upstream. Respeite `429` e o cabeçalho `Retry-After`.
+
+#### Factory, instância compartilhada e facade: qual papel cada uma teria?
+
+Esses nomes descrevem responsabilidades diferentes e podem trabalhar juntos:
+
+- **Factory (`createOctoCardsClient`)**: função que cria um cliente configurado com a URL base, transporte e política de cache. Facilita testes e permite apontar para instalações diferentes.
+- **Instância compartilhada (singleton no app consumidor)**: o app cria o cliente uma vez e reutiliza essa instância nos componentes/módulos. Ela não cria conexão permanente por si só; cada método faz uma requisição HTTP quando necessário.
+- **Facade (`OctoCardsClient` ou nome semelhante)**: interface simples para o app. No futuro, poderia expor `getCards(...)` sem obrigar o consumidor a conhecer as APIs específicas de cada provedor.
+- **Adapters de provedores**: componentes internos separados que conversam com GitHub, GitLab, Gitea/Forgejo ou outros e convertem as respostas para um modelo comum de cartão.
+
+Um desenho futuro possível seria:
+
+~~~text
+App consumidor
+  -> facade OctoCards.getCards({ source: "github", owner, repos })
+      -> adapter GitHub -> GitHub REST API
+      -> adapter GitLab -> GitLab API
+      -> normalização para o modelo de cartão do OctoCards
+~~~
+
+**Isso é uma proposta, não uma funcionalidade atual.** Hoje o serviço implementa apenas o GitHub e suas rotas não recebem o campo `source`. Antes de adicionar provedores, será preciso definir um contrato comum para os dados e erros, adaptar os campos que variam entre plataformas e versionar o contrato público. A facade pertence à camada cliente/SDK ou à orquestração interna; não significa criar uma rota diferente para cada repositório.
+
+Para um SDK futuro, a composição recomendada seria uma factory que recebe adapters e cria a facade. Cada app cria e compartilha a própria instância. Em servidor multiusuário, evite uma instância global que guarde tokens ou estado específico de um usuário; injete credenciais por requisição e isole as caches quando a resposta depender delas.
+
+#### Cache: o que é compartilhado?
+
+- **Cache local do cliente:** opcional. Evita ida à rede repetida enquanto aquele app está aberto. Não é compartilhada com outros navegadores nem sobrevive a reinicializações, a menos que o próprio app persista dados.
+- **Cache do backend atual:** guarda cartões por cinco minutos, até 500 entradas, em memória por processo. Ajuda a evitar consultas upstream repetidas, mas não evita que cada cliente chegue ao OctoCards.
+- **Redis atual:** coordena o orçamento compartilhado de chamadas ao GitHub entre instâncias; **não armazena os cartões**.
+
+Um singleton com cache em memória não substitui uma cache compartilhada no servidor. Também não é necessário salvar respostas em arquivo JSON para começar: mantenha a lista de coleções como configuração TypeScript/JSON no app e busque os dados da API. Persista uma resposta JSON apenas se precisar de snapshot/offline e implemente uma regra para atualizá-la.
+
+Não coloque tokens GitHub no código do navegador. Para repositórios públicos, comece sem `Authorization`. Se optar por enviar credenciais por requisição, use HTTPS e apenas uma instalação em que confia; o servidor receberá o token temporariamente para consultar o GitHub.
 
 ## 5. Como o sistema funciona
 

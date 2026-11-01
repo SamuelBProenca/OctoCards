@@ -17,13 +17,21 @@ const card: PropsGitCard = {
 const createResponse = () => {
     const response = {
         status: jest.fn().mockReturnThis(),
+        setHeader: jest.fn(),
         json: jest.fn()
     };
     return response as unknown as Response;
 };
 
-const createRequest = (params: object = {}, query: object = {}) =>
-    ({ params, query } as unknown as Request);
+const createRequest = (
+    params: object = {},
+    query: object = {},
+    authorization?: string
+) => ({
+    params,
+    query,
+    get: jest.fn((header: string) => header.toLowerCase() === 'authorization' ? authorization : undefined)
+} as unknown as Request);
 
 describe('gitCardController', () => {
     beforeEach(() => {
@@ -40,9 +48,50 @@ describe('gitCardController', () => {
 
         await getGitCard(createRequest({ repo: 'project' }, { owner: 'example' }), response);
 
-        expect(fetch).toHaveBeenCalledWith('example', 'project');
+        expect(fetch).toHaveBeenCalledWith('example', 'project', undefined);
         expect(response.status).toHaveBeenCalledWith(200);
         expect(response.json).toHaveBeenCalledWith(card);
+    });
+
+    it('forwards a caller Bearer credential without logging or returning it', async () => {
+        const callerToken = 'mock-user-token-not-a-credential';
+        const fetch = jest.spyOn(gitCardService, 'fetchRepositoryData').mockResolvedValue(card);
+        const response = createResponse();
+
+        await getGitCard(
+            createRequest({ repo: 'project' }, { owner: 'example' }, `Bearer ${callerToken}`),
+            response
+        );
+
+        expect(fetch).toHaveBeenCalledWith('example', 'project', callerToken);
+        expect(JSON.stringify((response.json as jest.Mock).mock.calls)).not.toContain(callerToken);
+        expect(JSON.stringify((console.error as jest.Mock).mock.calls)).not.toContain(callerToken);
+    });
+
+    it('uses the caller credential for every repository in a batch', async () => {
+        const callerToken = 'mock-batch-token-not-a-credential';
+        const fetch = jest.spyOn(gitCardService, 'fetchRepositoryData').mockResolvedValue(card);
+        const response = createResponse();
+
+        await getGitCards(
+            createRequest({}, { repos: 'first,second', owner: 'example' }, `Bearer ${callerToken}`),
+            response
+        );
+
+        expect(fetch.mock.calls).toEqual([
+            ['example', 'first', callerToken],
+            ['example', 'second', callerToken]
+        ]);
+    });
+
+    it('rejects malformed caller credentials before reaching the service', async () => {
+        const fetch = jest.spyOn(gitCardService, 'fetchRepositoryData');
+        const response = createResponse();
+
+        await getGitCard(createRequest({ repo: 'project' }, { owner: 'example' }, 'Basic abc'), response);
+
+        expect(fetch).not.toHaveBeenCalled();
+        expect(response.status).toHaveBeenCalledWith(400);
     });
 
     it('rejects empty repository entries before making upstream calls', async () => {
@@ -112,8 +161,8 @@ describe('gitCardController', () => {
         await getGitCards(createRequest({}, { repos: 'First,first,Second', owner: 'example' }), response);
 
         expect(fetch.mock.calls).toEqual([
-            ['example', 'First'],
-            ['example', 'Second']
+            ['example', 'First', undefined],
+            ['example', 'Second', undefined]
         ]);
         expect(response.status).toHaveBeenCalledWith(200);
         expect(response.json).toHaveBeenCalledWith([card, card]);
@@ -164,5 +213,17 @@ describe('gitCardController', () => {
         expect(response.json).toHaveBeenCalledWith({
             error: { code: 'REPOSITORY_NOT_FOUND', message: 'Repository not found.' }
         });
+    });
+
+    it('forwards the GitHub request budget retry time as a response header', async () => {
+        jest.spyOn(gitCardService, 'fetchRepositoryData').mockRejectedValue(
+            new OctoCardError('GITHUB_RATE_LIMITED', 429, 'GitHub API request budget exceeded.', 37)
+        );
+        const response = createResponse();
+
+        await getGitCard(createRequest({ repo: 'project' }, { owner: 'example' }), response);
+
+        expect(response.setHeader).toHaveBeenCalledWith('Retry-After', '37');
+        expect(response.status).toHaveBeenCalledWith(429);
     });
 });

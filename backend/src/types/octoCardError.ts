@@ -4,6 +4,7 @@ export type OctoCardErrorCode =
     | "GITHUB_UNAUTHORIZED"
     | "GITHUB_FORBIDDEN"
     | "GITHUB_RATE_LIMITED"
+    | "BUDGET_STORE_UNAVAILABLE"
     | "API_RATE_LIMITED"
     | "GITHUB_TIMEOUT"
     | "CONFIGURATION_ERROR"
@@ -14,7 +15,8 @@ export class OctoCardError extends Error {
     constructor(
         public readonly code: OctoCardErrorCode,
         public readonly statusCode: number,
-        message: string
+        message: string,
+        public readonly retryAfterSeconds?: number
     ) {
         super(message);
         this.name = "OctoCardError";
