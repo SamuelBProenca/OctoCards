@@ -35,12 +35,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/GitCard'
               example:
-                name: OctoCards
-                description: '# OctoCards'
+                name: Hello-World
+                description: '# Hello-World'
                 principal_languages: [TypeScript, JavaScript]
                 stars: 2
                 forks: 0
-                url: https://github.com/SamuelBProenca/OctoCards
+                url: https://github.com/octocat/Hello-World
                 illustration_image_url: https://placehold.co/600x400
         '400':
           $ref: '#/components/responses/InvalidRequest'
@@ -75,7 +75,7 @@ paths:
             type: string
             minLength: 1
             maxLength: 2048
-          example: OctoCards,LinkKeeper
+          example: Hello-World,Spoon-Knife
         - $ref: '#/components/parameters/Owner'
       responses:
         '200':
@@ -121,7 +121,7 @@ components:
         minLength: 1
         maxLength: 100
         pattern: "^[A-Za-z0-9._-]+$"
-      example: OctoCards
+      example: Hello-World
     Owner:
       name: owner
       in: query
@@ -132,7 +132,7 @@ components:
         minLength: 1
         maxLength: 39
         pattern: "^(?!.*--)[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$"
-      example: SamuelBProenca
+      example: octocat
   schemas:
     GitCard:
       type: object

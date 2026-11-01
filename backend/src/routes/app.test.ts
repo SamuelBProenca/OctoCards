@@ -53,6 +53,8 @@ describe('Express app modes', () => {
             expect(docsHtml).toContain('Use a API do seu jeito.');
             expect(docsHtml).toContain('API_RATE_LIMITED');
             expect(docsHtml).toContain('TRUSTED_PROXIES');
+            expect(docsHtml).toContain('owner: "octocat"');
+            expect(docsHtml).toContain('Hello-World,Spoon-Knife');
 
             const openapi = await fetch(`${baseUrl}/swagger.yaml`);
             expect(openapi.status).toBe(200);
@@ -62,6 +64,21 @@ describe('Express app modes', () => {
             expect(openapiYaml).toContain('GithubBearer');
             expect(openapiYaml).toContain('BudgetUnavailable');
             expect(openapiYaml).toContain('pattern: "^(?!.*--)[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$"');
+            expect(openapiYaml).toContain('example: octocat');
+
+            const usageGuide = await fetch(`${baseUrl}/GUIA_DO_OCTOCARDS.md`);
+            expect(usageGuide.status).toBe(200);
+            const usageGuideText = await usageGuide.text();
+            expect(usageGuideText).toContain('Integrar seu próprio app: coleções, cliente e cache');
+            expect(usageGuideText).toContain('Passo a passo: testar a API com um arquivo independente');
+            expect(usageGuideText).toContain('const API_BASE_URL = "http://localhost:3000";');
+            expect(usageGuideText).toContain('node ./teste-octocards.mjs');
+            expect(usageGuideText).toContain('const API_BASE_URL = "http://localhost:3000"');
+            expect(usageGuideText).toContain('repos: collection.repos.join(",")');
+            expect(usageGuideText).toContain('**Isso é uma proposta, não uma funcionalidade atual.**');
+            expect(usageGuideText).toContain('Redis atual:** coordena o orçamento compartilhado');
+            expect(usageGuideText).toContain('owner: "octocat"');
+            expect(usageGuideText).not.toContain('owner: "SamuelBProenca"');
 
             const invalidRequest = await fetch(`${baseUrl}/api/cards`);
             expect(invalidRequest.status).toBe(400);
@@ -76,7 +93,11 @@ describe('Express app modes', () => {
             const root = await fetch(baseUrl);
             expect(root.status).toBe(200);
             expect(root.headers.get('x-powered-by')).toBeNull();
-            expect(await root.text()).toContain('GitHub em dados.');
+            const playgroundHtml = await root.text();
+            expect(playgroundHtml).toContain('GitHub em dados.');
+            expect(playgroundHtml).toContain('value="octocat"');
+            expect(playgroundHtml).toContain('value="Hello-World, Spoon-Knife"');
+            expect(playgroundHtml).toContain('data-preset="octocat" aria-pressed="true"');
 
             const docs = await fetch(`${baseUrl}/docs/`);
             expect(docs.status).toBe(200);

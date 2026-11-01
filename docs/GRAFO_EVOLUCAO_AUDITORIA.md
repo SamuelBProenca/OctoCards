@@ -135,3 +135,36 @@ flowchart TD
 ```
 
 A semantica entre adapters foi simulada com backend fake; nao havia redis-server nem Docker para integracao local real. A OpenAPI passou a documentar Bearer opcional e respostas 503/Retry-After. `backend/.env` permanece ignorado e nao foi lido nem alterado. A pasta preexistente `backend/tests/` continua fora do commit.
+## Revalidação de exemplos públicos e quickstart - 01/11/2026
+
+```mermaid
+flowchart TD
+    EX["Exemplos com repositórios próprios"] --> OCTO["Exemplos e seleção padrão migrados para octocat"]
+    OCTO --> FILE["backend/local-test/teste-octocards.mjs"]
+    OCTO --> DOC["Guia, documentação web e OpenAPI atualizados"]
+    FILE --> SYNTAX["node --check: aprovado; script não executado"]
+    DOC --> JEST["Jest: 7 suítes, 53/53 testes"]
+    JEST --> TS["Typecheck: aprovado"]
+    TS --> BUILD["Build e smoke: aprovados"]
+    BUILD --> AUDIT["npm audit --omit=dev: alerta alto follow-redirects 1.16.1"]
+    AUDIT --> FIX["Correção upstream 1.16.2 disponível"]
+    FIX --> HOLD["Aguardar decisão antes de commit/push"]
+```
+
+As varreduras de padrões conhecidos nas alterações desta rodada não encontraram tokens ou chaves. O preset opcional "Meus projetos", solicitado anteriormente, foi preservado; Octocat passou a ser o exemplo e valor inicial padrão. A suíte completa, o typecheck e o build passaram. O audit de produção interrompeu o envio por identificar `follow-redirects@1.16.1`, dependência transitiva de Axios; o patch upstream é `1.16.2`. A atualização e o push aguardam decisão do usuário.
+
+## Corrigir follow-redirects e revalidar envio - 01/11/2026
+
+```mermaid
+flowchart TD
+    AUDIT["npm audit produção detectou follow-redirects 1.16.1 alto"] --> LOCK["Lockfile atualizado para 1.16.2"]
+    LOCK --> PROD["npm audit --omit=dev: 0 vulnerabilidades"]
+    LOCK --> TEST["npm test: 7 suítes, 53/53 testes"]
+    TEST --> TSC["Typecheck aprovado"]
+    TSC --> SMOKE["Build e smoke de produção aprovados"]
+    SMOKE --> PUBLISH["Push pronto após revisar diff e excluir artefatos locais"]
+    AUDIT --> DEV["Audit completo: 22 achados somente em dependências de desenvolvimento"]
+    DEV --> HOLD["Manter decisão anterior: sem npm audit --force"]
+```
+
+O lockfile alterou apenas `follow-redirects` de 1.16.1 para 1.16.2; o `package.json` permaneceu igual. O audit de produção agora está limpo. O audit completo ainda reporta 22 vulnerabilidades de desenvolvimento (4 low, 18 moderate), incluindo deepmerge/Jest e minimatch; não apliquei downgrades forçados. O comando oficial `npm test` passou com 7 suites/53 testes, typecheck e smoke passaram. Uma invocação genérica do Jest também descobriu `backend/tests/gitCardService.test.ts`, artefato vazio e não rastreado, e falhou nessa suite; ele foi preservado e não será enviado. O CI usa o script oficial, limitado a `src`.
