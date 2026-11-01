@@ -168,3 +168,26 @@ flowchart TD
 ```
 
 O lockfile alterou apenas `follow-redirects` de 1.16.1 para 1.16.2; o `package.json` permaneceu igual. O audit de produção agora está limpo. O audit completo ainda reporta 22 vulnerabilidades de desenvolvimento (4 low, 18 moderate), incluindo deepmerge/Jest e minimatch; não apliquei downgrades forçados. O comando oficial `npm test` passou com 7 suites/53 testes, typecheck e smoke passaram. Uma invocação genérica do Jest também descobriu `backend/tests/gitCardService.test.ts`, artefato vazio e não rastreado, e falhou nessa suite; ele foi preservado e não será enviado. O CI usa o script oficial, limitado a `src`.
+
+## PR #18 — compatibilidade TypeScript e ts-jest - 01/11/2026
+
+```mermaid
+flowchart TD
+    OLD["PR #18: TypeScript 7.0.2"] --> ERESOLVE["CI falha em npm ci: ts-jest 29.4.14 exige TypeScript <7"]
+    ERESOLVE --> API["ts-jest depende da API JS do compilador; TS7 não oferece compatibilidade direta"]
+    API --> TS6["Dependência ajustada para TypeScript 6.0.3"]
+    TS6 --> CFG["Node16 module/resolution, tipos jest/node explícitos e isolatedModules"]
+    CFG --> TEST["Jest: 7 suítes, 53/53 testes"]
+    CFG --> TYPE["Typecheck: aprovado"]
+    CFG --> BUILD["Build e smoke: aprovados"]
+    TS6 --> INSTALL["npm ci: aprovado no GitHub Actions"]
+    INSTALL --> AUDIT["npm audit --omit=dev: 0 vulnerabilidades"]
+    TEST --> CI["Backend CI: sucesso"]
+    TYPE --> CI
+    BUILD --> CI
+    AUDIT --> CI
+    CI --> CODEQL["CodeQL: sucesso"]
+    CODEQL --> PR["PR #18 atualizada; aberta e mergeable"]
+```
+
+O erro original foi reproduzido pelo CI e localmente: o TypeScript 7 não pode ser usado diretamente com `ts-jest` 29, pois essa integração depende das APIs do compilador JavaScript que não existem no TS7 reescrito em Go. O primeiro teste com TS6 revelou ajustes necessários no tsconfig (globals de Jest/Node e resolução Node10 depreciada); estes foram corrigidos e a suíte completa voltou a passar sem warnings. Commit da correção: `a433c02734e6ea401780dae001c844062beff326`. A PR não foi mesclada.
